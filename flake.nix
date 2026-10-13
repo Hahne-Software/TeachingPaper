@@ -31,6 +31,34 @@
             openssl
             libayatana-appindicator
           ];
+
+          # Throw-away ZDOTDIR that loads the user's real zsh config untouched
+          # (with ZDOTDIR pointing at it) and then puts a marker at the front of
+          # $PROMPT. The marker hook re-registers itself last in precmd so
+          # prompt themes can't drop it.
+          zdotdir = pkgs.symlinkJoin {
+            name = "devshell-zdotdir";
+            paths = [
+              (pkgs.writeTextDir ".zshenv" ''
+                _devshell_zdotdir=$ZDOTDIR
+                ZDOTDIR=''${NIX_DEVSHELL_USER_ZDOTDIR:-$HOME}
+                [[ -f $ZDOTDIR/.zshenv ]] && source $ZDOTDIR/.zshenv
+                ZDOTDIR=$_devshell_zdotdir
+              '')
+              (pkgs.writeTextDir ".zshrc" ''
+                ZDOTDIR=''${NIX_DEVSHELL_USER_ZDOTDIR:-$HOME}
+                unset NIX_DEVSHELL_USER_ZDOTDIR _devshell_zdotdir
+                [[ -f $ZDOTDIR/.zshrc ]] && source $ZDOTDIR/.zshrc
+
+                _devshell_marker() {
+                  precmd_functions=(''${precmd_functions:#_devshell_marker} _devshell_marker)
+                  local m='%B%F{yellow}[TeachingPaper]%f%b '
+                  [[ $PROMPT == "$m"* ]] || PROMPT="$m$PROMPT"
+                }
+                precmd_functions+=(_devshell_marker)
+              '')
+            ];
+          };
         in
         {
           default = pkgs.mkShell {
@@ -69,7 +97,7 @@
               # Drop into zsh for interactive sessions
               if [ -z "$ZSH_VERSION" ] && [ -t 0 ] && [ -z "$IN_NIX_DEVSHELL_ZSH" ]; then
                 export IN_NIX_DEVSHELL_ZSH=1
-                exec zsh
+                NIX_DEVSHELL_USER_ZDOTDIR="''${ZDOTDIR:-$HOME}" ZDOTDIR=${zdotdir} exec zsh
               fi
             '';
           };
