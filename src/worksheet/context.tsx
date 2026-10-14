@@ -5,9 +5,10 @@ import {
   type Dispatch,
   type ReactNode,
 } from 'react';
+import { blockDefaults } from '../blocks/registry';
 import {
+  createWorksheetReducer,
   initialState,
-  worksheetReducer,
   type WorksheetAction,
   type WorksheetState,
 } from './reducer';
@@ -16,6 +17,8 @@ type WorksheetContextValue = {
   state: WorksheetState;
   dispatch: Dispatch<WorksheetAction>;
 };
+
+const worksheetReducer = createWorksheetReducer(blockDefaults);
 
 const WorksheetContext = createContext<WorksheetContextValue | null>(null);
 

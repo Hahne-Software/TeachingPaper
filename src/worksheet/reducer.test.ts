@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { initialState, worksheetReducer } from './reducer';
+import { createWorksheetReducer, initialState } from './reducer';
+
+const worksheetReducer = createWorksheetReducer({
+  heading: () => ({ text: '', level: 1 }),
+});
 
 describe('worksheetReducer insert', () => {
   it('appends a Block with its Block Type default data at the end', () => {

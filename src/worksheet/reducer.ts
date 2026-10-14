@@ -1,5 +1,3 @@
-import { blockTypes } from '../blocks/registry';
-
 export type Block = {
   id: string;
   type: string;
@@ -22,39 +20,41 @@ export const initialState: WorksheetState = {
   nextId: 1,
 };
 
-export function worksheetReducer(
-  state: WorksheetState,
-  action: WorksheetAction,
-): WorksheetState {
-  switch (action.type) {
-    case 'insert': {
-      const definition = blockTypes[action.blockType];
-      if (!definition) return state;
-      const block: Block = {
-        id: `block-${state.nextId}`,
-        type: action.blockType,
-        data: definition.defaultData(),
-      };
-      const index = Math.min(
-        Math.max(action.index ?? state.blocks.length, 0),
-        state.blocks.length,
-      );
-      return {
-        blocks: [
-          ...state.blocks.slice(0, index),
-          block,
-          ...state.blocks.slice(index),
-        ],
-        selectedId: block.id,
-        nextId: state.nextId + 1,
-      };
+/** Default data per Block Type id; keeps the reducer free of UI imports. */
+export type BlockDefaults = Record<string, () => unknown>;
+
+export const createWorksheetReducer =
+  (defaults: BlockDefaults) =>
+  (state: WorksheetState, action: WorksheetAction): WorksheetState => {
+    switch (action.type) {
+      case 'insert': {
+        const defaultData = defaults[action.blockType];
+        if (!defaultData) return state;
+        const block: Block = {
+          id: `block-${state.nextId}`,
+          type: action.blockType,
+          data: defaultData(),
+        };
+        const index = Math.min(
+          Math.max(action.index ?? state.blocks.length, 0),
+          state.blocks.length,
+        );
+        return {
+          blocks: [
+            ...state.blocks.slice(0, index),
+            block,
+            ...state.blocks.slice(index),
+          ],
+          selectedId: block.id,
+          nextId: state.nextId + 1,
+        };
+      }
+      case 'update':
+        return {
+          ...state,
+          blocks: state.blocks.map((block) =>
+            block.id === action.id ? { ...block, data: action.data } : block,
+          ),
+        };
     }
-    case 'update':
-      return {
-        ...state,
-        blocks: state.blocks.map((block) =>
-          block.id === action.id ? { ...block, data: action.data } : block,
-        ),
-      };
-  }
-}
+  };
