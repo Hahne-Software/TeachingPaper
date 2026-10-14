@@ -51,4 +51,53 @@ describe('worksheetReducer insert', () => {
 
     expect(state).toBe(initialState);
   });
+
+  it('appends after existing Blocks when no index is given', () => {
+    let state = initialState;
+    state = worksheetReducer(state, { type: 'insert', blockType: 'heading' });
+    state = worksheetReducer(state, { type: 'insert', blockType: 'heading' });
+    const firstId = state.blocks[0].id;
+
+    state = worksheetReducer(state, { type: 'insert', blockType: 'heading' });
+
+    expect(state.blocks).toHaveLength(3);
+    expect(state.blocks[0].id).toBe(firstId);
+    expect(state.blocks[2].id).toBe(state.selectedId);
+  });
+
+  it('selects the inserted Block', () => {
+    const state = worksheetReducer(initialState, {
+      type: 'insert',
+      blockType: 'heading',
+    });
+
+    expect(state.selectedId).toBe(state.blocks[0].id);
+  });
+
+  it('clamps a negative index to the start', () => {
+    let state = initialState;
+    state = worksheetReducer(state, { type: 'insert', blockType: 'heading' });
+    state = worksheetReducer(state, { type: 'insert', blockType: 'heading' });
+
+    state = worksheetReducer(state, {
+      type: 'insert',
+      blockType: 'heading',
+      index: -1,
+    });
+
+    expect(state.blocks[0].id).toBe(state.selectedId);
+  });
+
+  it('clamps an index past the end to the end', () => {
+    let state = initialState;
+    state = worksheetReducer(state, { type: 'insert', blockType: 'heading' });
+
+    state = worksheetReducer(state, {
+      type: 'insert',
+      blockType: 'heading',
+      index: 99,
+    });
+
+    expect(state.blocks[state.blocks.length - 1].id).toBe(state.selectedId);
+  });
 });

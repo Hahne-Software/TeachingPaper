@@ -20,18 +20,22 @@ function HeadingView({ data, autoFocus, onChange }: BlockViewProps<HeadingData>)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const Tag = `h${data.level}` as const;
+
   return (
-    <h1
+    <Tag
       ref={ref}
       className={`heading heading-level-${data.level}`}
       contentEditable="plaintext-only"
       suppressContentEditableWarning
-      role="textbox"
-      aria-label="Heading"
       data-placeholder="Heading"
-      onInput={(event) =>
-        onChange({ ...data, text: event.currentTarget.textContent ?? '' })
-      }
+      onInput={(event) => {
+        const element = event.currentTarget;
+        const text = element.textContent ?? '';
+        // Browsers can leave a stray <br> behind, which defeats :empty.
+        if (text === '') element.replaceChildren();
+        onChange({ ...data, text });
+      }}
       onKeyDown={(event) => {
         if (event.key === 'Enter') event.preventDefault();
       }}

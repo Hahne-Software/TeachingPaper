@@ -1,5 +1,7 @@
 import { blockTypes } from '../blocks/registry';
+import type { BlockTypeDefinition } from '../blocks/types';
 import { useWorksheet } from '../worksheet/context';
+import type { Block } from '../worksheet/reducer';
 
 export function Worksheet() {
   const { state } = useWorksheet();
@@ -14,11 +16,10 @@ export function Worksheet() {
           const definition = blockTypes[block.type];
           if (!definition) return null;
           return (
-            <BlockView
+            <BlockHost
               key={block.id}
-              id={block.id}
-              type={block.type}
-              data={block.data}
+              block={block}
+              definition={definition}
               autoFocus={block.id === state.selectedId}
             />
           );
@@ -28,22 +29,23 @@ export function Worksheet() {
   );
 }
 
-function BlockView(props: {
-  id: string;
-  type: string;
-  data: unknown;
+function BlockHost({
+  block,
+  definition,
+  autoFocus,
+}: {
+  block: Block;
+  definition: BlockTypeDefinition;
   autoFocus: boolean;
 }) {
   const { dispatch } = useWorksheet();
-  const { View } = blockTypes[props.type];
+  const { View } = definition;
   return (
     <div className="block">
       <View
-        data={props.data}
-        autoFocus={props.autoFocus}
-        onChange={(data) =>
-          dispatch({ type: 'update', id: props.id, data })
-        }
+        data={block.data}
+        autoFocus={autoFocus}
+        onChange={(data) => dispatch({ type: 'update', id: block.id, data })}
       />
     </div>
   );

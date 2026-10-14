@@ -35,7 +35,10 @@ export function worksheetReducer(
         type: action.blockType,
         data: definition.defaultData(),
       };
-      const index = action.index ?? state.blocks.length;
+      const index = Math.min(
+        Math.max(action.index ?? state.blocks.length, 0),
+        state.blocks.length,
+      );
       return {
         blocks: [
           ...state.blocks.slice(0, index),
