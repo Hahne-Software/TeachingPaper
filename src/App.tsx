@@ -1,5 +1,9 @@
 import { useEffect } from 'react';
 import { listen } from '@tauri-apps/api/event';
+import { BlockPalette } from './components/BlockPalette';
+import { PropertiesPanel } from './components/PropertiesPanel';
+import { Worksheet } from './components/Worksheet';
+import { WorksheetProvider } from './worksheet/context';
 import './App.css';
 
 function App() {
@@ -14,9 +18,13 @@ function App() {
   }, []);
 
   return (
-    <main className="document-area">
-      <div className="page" />
-    </main>
+    <WorksheetProvider>
+      <div className="editor">
+        <BlockPalette />
+        <Worksheet />
+        <PropertiesPanel />
+      </div>
+    </WorksheetProvider>
   );
 }
 
