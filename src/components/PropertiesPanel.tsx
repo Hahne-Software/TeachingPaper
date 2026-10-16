@@ -9,9 +9,7 @@ export function PropertiesPanel() {
     <aside className="sidebar properties-panel" aria-label="Properties Panel">
       <h2>Properties</h2>
       <p className="muted">
-        {selected
-          ? blockTypes[selected.type]?.label
-          : 'No Block selected'}
+        {selected ? blockTypes[selected.type]?.label : 'No Block selected'}
       </p>
     </aside>
   );

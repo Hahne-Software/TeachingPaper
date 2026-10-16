@@ -14,7 +14,6 @@ export type BlockTypeDefinition<D = unknown> = {
 };
 
 /** Erases the data type so definitions can live in one heterogeneous registry. */
-export const defineBlockType = <D,>(
+export const defineBlockType = <D>(
   definition: BlockTypeDefinition<D>,
-): BlockTypeDefinition =>
-  definition as unknown as BlockTypeDefinition;
+): BlockTypeDefinition => definition as unknown as BlockTypeDefinition;

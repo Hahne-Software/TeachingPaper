@@ -8,7 +8,11 @@ export type HeadingData = {
 
 const stripLineBreaks = (text: string) => text.replace(/\s*[\r\n]+\s*/g, ' ');
 
-function HeadingView({ data, autoFocus, onChange }: BlockViewProps<HeadingData>) {
+function HeadingView({
+  data,
+  autoFocus,
+  onChange,
+}: BlockViewProps<HeadingData>) {
   const ref = useRef<HTMLHeadingElement>(null);
 
   // Uncontrolled: the DOM owns the text while typing; seed it once on mount.

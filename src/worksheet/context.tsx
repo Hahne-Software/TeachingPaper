@@ -33,6 +33,7 @@ export function WorksheetProvider({ children }: { children: ReactNode }) {
 
 export function useWorksheet(): WorksheetContextValue {
   const value = useContext(WorksheetContext);
-  if (!value) throw new Error('useWorksheet must be used inside WorksheetProvider');
+  if (!value)
+    throw new Error('useWorksheet must be used inside WorksheetProvider');
   return value;
 }
