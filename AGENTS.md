@@ -6,14 +6,16 @@
 - Uses React with Typescript
 
 ## Commands
+
 - use `pnpm tauri dev` to run the app locally
+- `pnpm test` (Vitest) and `pnpm typecheck`; `pnpm format` fixes formatting. The pre-commit hook and CI run all three.
 
 ## Code style
-- TypeScript strict mode
-- Single quotes, semicolons
+
 - Use functional patterns where possible
 
 ## Branching & releases
+
 - Trunk-based: `main` is always working and protected (PR + green CI required)
 - Work in short-lived branches off `main`, merged via PR (squash): `feat/<name>`, `fix/<name>`, `docs/<name>`, `chore/<name>`
 - Commits follow Conventional Commits (`feat(app): ...`)
