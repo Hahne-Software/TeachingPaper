@@ -196,3 +196,23 @@ body,
   background: #3b82f6;
   border-color: #3b82f6;
 }
+
+.insertion-line {
+  height: 2px;
+  margin: 2px -8px;
+  background: #3b82f6;
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+.palette-drag-preview {
+  width: auto;
+  background: #fff;
+  color: #0f0f0f;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  cursor: grabbing;
+}
+
+.palette-entry {
+  touch-action: none;
+}
