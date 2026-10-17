@@ -12,7 +12,9 @@ export type WorksheetState = {
 
 export type WorksheetAction =
   | { type: 'insert'; blockType: string; index?: number }
-  | { type: 'update'; id: string; data: unknown };
+  | { type: 'update'; id: string; data: unknown }
+  | { type: 'select'; id: string }
+  | { type: 'deselect' };
 
 export const initialState: WorksheetState = {
   blocks: [],
@@ -35,8 +37,13 @@ export const createWorksheetReducer =
           type: action.blockType,
           data: defaultData(),
         };
+        const selectedIndex = state.blocks.findIndex(
+          (b) => b.id === state.selectedId,
+        );
+        const defaultIndex =
+          selectedIndex === -1 ? state.blocks.length : selectedIndex + 1;
         const index = Math.min(
-          Math.max(action.index ?? state.blocks.length, 0),
+          Math.max(action.index ?? defaultIndex, 0),
           state.blocks.length,
         );
         return {
@@ -49,6 +56,12 @@ export const createWorksheetReducer =
           nextId: state.nextId + 1,
         };
       }
+      case 'select':
+        return state.blocks.some((b) => b.id === action.id)
+          ? { ...state, selectedId: action.id }
+          : state;
+      case 'deselect':
+        return { ...state, selectedId: null };
       case 'update':
         return {
           ...state,
