@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { DOMParser } from '@tiptap/pm/model';
@@ -41,27 +41,99 @@ describe('Body Text', () => {
     );
   });
 
-  it('toggles formatting via keyboard shortcut and reflects it in the buttons', async () => {
-    const { onChange } = setup();
-    const bold = screen.getByRole('button', { name: 'Bold' });
-    expect(bold).toHaveAttribute('aria-pressed', 'false');
+  it.each([
+    ['b', 'Bold'],
+    ['i', 'Italic'],
+    ['u', 'Underline'],
+  ] as const)(
+    'toggles %s via keyboard shortcut and reflects it in the buttons',
+    async (key, label) => {
+      const { editor } = setup();
+      await waitFor(() => expect(editor).toHaveFocus());
+      const button = screen.getByRole('button', { name: label });
+      expect(button).toHaveAttribute('aria-pressed', 'false');
 
-    await userEvent.keyboard('{Control>}b{/Control}hi');
+      await userEvent.keyboard(`{Control>}${key}{/Control}`);
 
-    expect(bold).toHaveAttribute('aria-pressed', 'true');
-    expect(lastData(onChange).paragraphs[0]).toEqual([
-      { text: 'hi', bold: true, italic: false, underline: false },
-    ]);
-  });
+      await waitFor(() =>
+        expect(button).toHaveAttribute('aria-pressed', 'true'),
+      );
+    },
+  );
 
-  it('applies formatting from the Properties Panel buttons', async () => {
-    const { onChange } = setup();
-    await userEvent.click(screen.getByRole('button', { name: 'Underline' }));
-    await userEvent.keyboard('u');
+  it.each([
+    ['Bold', 'bold'],
+    ['Italic', 'italic'],
+    ['Underline', 'underline'],
+  ] as const)(
+    'applies %s to the selected text and stores only our own format',
+    async (label, mark) => {
+      const onChange = vi.fn();
+      render(
+        <>
+          <View
+            data={{
+              paragraphs: [
+                [{ text: 'hi', bold: false, italic: false, underline: false }],
+              ],
+            }}
+            autoFocus={false}
+            onChange={onChange}
+          />
+          <PropertiesView data={defaultData() as never} onChange={() => {}} />
+        </>,
+      );
+      await userEvent.click(screen.getByRole('textbox'));
+      await userEvent.keyboard('{Control>}a{/Control}');
+      await userEvent.click(screen.getByRole('button', { name: label }));
 
-    expect(lastData(onChange).paragraphs[0]).toEqual([
-      { text: 'u', bold: false, italic: false, underline: true },
-    ]);
+      await waitFor(() => expect(onChange).toHaveBeenCalled());
+      expect(lastData(onChange)).toEqual({
+        paragraphs: [
+          [
+            {
+              text: 'hi',
+              bold: false,
+              italic: false,
+              underline: false,
+              [mark]: true,
+            },
+          ],
+        ],
+      });
+    },
+  );
+
+  it('points the buttons at the Block that was clicked', async () => {
+    render(
+      <>
+        <View
+          data={defaultData() as never}
+          autoFocus={false}
+          onChange={() => {}}
+        />
+        <View
+          data={defaultData() as never}
+          autoFocus={false}
+          onChange={() => {}}
+        />
+        <PropertiesView data={defaultData() as never} onChange={() => {}} />
+      </>,
+    );
+    const [first, second] = screen.getAllByRole('textbox');
+    await userEvent.click(first);
+    await userEvent.click(screen.getByRole('button', { name: 'Bold' }));
+    expect(screen.getByRole('button', { name: 'Bold' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    await userEvent.click(second);
+
+    expect(screen.getByRole('button', { name: 'Bold' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
   });
 });
 
@@ -81,6 +153,28 @@ describe('Body Text editor schema', () => {
     expect(fromTiptapDoc(editor.getJSON()).paragraphs).toEqual([
       [{ text: 'One', bold: false, italic: false, underline: false }],
       [{ text: 'Two', bold: false, italic: false, underline: false }],
+    ]);
+  });
+
+  it('formats only the selected range', () => {
+    const editor = new Editor({
+      extensions: bodyTextExtensions,
+      content: toTiptapDoc({
+        paragraphs: [
+          [{ text: 'abcdef', bold: false, italic: false, underline: false }],
+        ],
+      }),
+    });
+    editor
+      .chain()
+      .setTextSelection({ from: 3, to: 5 })
+      .toggleMark('italic')
+      .run();
+
+    expect(fromTiptapDoc(editor.getJSON()).paragraphs[0]).toEqual([
+      { text: 'ab', bold: false, italic: false, underline: false },
+      { text: 'cd', bold: false, italic: true, underline: false },
+      { text: 'ef', bold: false, italic: false, underline: false },
     ]);
   });
 

@@ -18,3 +18,6 @@ if (typeof Range !== 'undefined') {
 if (typeof Element !== 'undefined') {
   Element.prototype.getClientRects ??= emptyRects;
 }
+if (typeof document !== 'undefined') {
+  document.elementFromPoint ??= () => null;
+}

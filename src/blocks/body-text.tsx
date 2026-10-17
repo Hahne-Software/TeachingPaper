@@ -91,6 +91,8 @@ function BodyTextView({
   return (
     <div
       className="body-text"
+      // Selecting a Block must retarget the Properties Panel at its editor.
+      onClickCapture={() => activeEditor.set(editor)}
       onClick={(event) => {
         if (event.target === event.currentTarget) editor?.commands.focus('end');
       }}
