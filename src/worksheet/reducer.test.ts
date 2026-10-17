@@ -105,3 +105,56 @@ describe('worksheetReducer insert', () => {
     expect(state.blocks[state.blocks.length - 1].id).toBe(state.selectedId);
   });
 });
+
+describe('worksheetReducer selection', () => {
+  const twoBlocks = () => {
+    let state = initialState;
+    state = worksheetReducer(state, { type: 'insert', blockType: 'heading' });
+    state = worksheetReducer(state, { type: 'insert', blockType: 'heading' });
+    return state;
+  };
+
+  it('selects a Block by id', () => {
+    const state = twoBlocks();
+    const firstId = state.blocks[0].id;
+
+    expect(
+      worksheetReducer(state, { type: 'select', id: firstId }).selectedId,
+    ).toBe(firstId);
+  });
+
+  it('leaves the state unchanged when selecting an unknown id', () => {
+    const state = twoBlocks();
+
+    expect(worksheetReducer(state, { type: 'select', id: 'nope' })).toBe(state);
+  });
+
+  it('deselects', () => {
+    const state = worksheetReducer(twoBlocks(), { type: 'deselect' });
+
+    expect(state.selectedId).toBeNull();
+  });
+
+  it('inserts after the selected Block', () => {
+    let state = twoBlocks();
+    const [first, second] = state.blocks;
+    state = worksheetReducer(state, { type: 'select', id: first.id });
+
+    state = worksheetReducer(state, { type: 'insert', blockType: 'heading' });
+
+    expect(state.blocks.map((b) => b.id)).toEqual([
+      first.id,
+      state.selectedId,
+      second.id,
+    ]);
+  });
+
+  it('inserts at the end when nothing is selected', () => {
+    let state = worksheetReducer(twoBlocks(), { type: 'deselect' });
+    const ids = state.blocks.map((b) => b.id);
+
+    state = worksheetReducer(state, { type: 'insert', blockType: 'heading' });
+
+    expect(state.blocks.map((b) => b.id)).toEqual([...ids, state.selectedId]);
+  });
+});

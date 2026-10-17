@@ -127,3 +127,42 @@ body,
     background-color: #2b2b2e;
   }
 }
+
+.block {
+  margin: 0 -8px;
+  padding: 0 8px;
+  border-radius: 4px;
+  outline: 2px solid transparent;
+}
+
+.block-selected {
+  outline-color: #3b82f6;
+}
+
+.properties-panel .field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 0.85rem;
+}
+
+.segmented {
+  display: flex;
+}
+
+.segmented button {
+  flex: 1;
+  padding: 6px;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid rgba(127, 127, 127, 0.4);
+  cursor: pointer;
+}
+
+.segmented button[aria-pressed='true'] {
+  color: #fff;
+  background: #3b82f6;
+  border-color: #3b82f6;
+}

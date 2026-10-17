@@ -1,13 +1,33 @@
+import { useEffect } from 'react';
 import { blockTypes } from '../blocks/registry';
 import type { BlockTypeDefinition } from '../blocks/types';
 import { useWorksheet } from '../worksheet/context';
 import type { Block } from '../worksheet/reducer';
 
 export function Worksheet() {
-  const { state } = useWorksheet();
+  const { state, dispatch } = useWorksheet();
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      dispatch({ type: 'deselect' });
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [dispatch]);
 
   return (
-    <main className="document-area">
+    <main
+      className="document-area"
+      onClick={(event) => {
+        if (!(event.target as Element).closest('.block')) {
+          dispatch({ type: 'deselect' });
+        }
+      }}
+    >
       <div className="page">
         {state.blocks.length === 0 && (
           <p className="page-hint">Drag a Block here from the left</p>
@@ -21,6 +41,7 @@ export function Worksheet() {
               block={block}
               definition={definition}
               autoFocus={block.id === state.selectedId}
+              selected={block.id === state.selectedId}
             />
           );
         })}
@@ -33,15 +54,22 @@ function BlockHost({
   block,
   definition,
   autoFocus,
+  selected,
 }: {
   block: Block;
   definition: BlockTypeDefinition;
   autoFocus: boolean;
+  selected: boolean;
 }) {
   const { dispatch } = useWorksheet();
   const { View } = definition;
+  const select = () => dispatch({ type: 'select', id: block.id });
   return (
-    <div className="block">
+    <div
+      className={selected ? 'block block-selected' : 'block'}
+      onClick={select}
+      onFocus={select}
+    >
       <View
         data={block.data}
         autoFocus={autoFocus}
