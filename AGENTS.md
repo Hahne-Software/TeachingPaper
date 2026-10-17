@@ -1,6 +1,6 @@
 # TeachingPaper - desktop app for teaching material
 
-- Multi-plattform (macOS, Linux, Windows) client desktop app
+- Multi-platform (macOS, Linux, Windows) client desktop app
 - Tauri as app framework
 - Uses pnpm for dependency management
 - Uses React with Typescript
@@ -9,6 +9,8 @@
 
 - use `pnpm tauri dev` to run the app locally
 - `pnpm test` (Vitest), `pnpm typecheck` and `pnpm lint`; `pnpm format` fixes formatting. The pre-commit hook and CI run all of them.
+- UI changes: verify in the browser against `pnpm dev` (port 1420) before reporting done; the Tauri shell is not needed.
+- Tiptap tests: read `docs/agents/testing-editors.md` first.
 
 ## Code style
 
