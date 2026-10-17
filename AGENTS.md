@@ -8,7 +8,7 @@
 ## Commands
 
 - use `pnpm tauri dev` to run the app locally
-- `pnpm test` (Vitest) and `pnpm typecheck`; `pnpm format` fixes formatting. The pre-commit hook and CI run all three.
+- `pnpm test` (Vitest), `pnpm typecheck` and `pnpm lint`; `pnpm format` fixes formatting. The pre-commit hook and CI run all of them.
 
 ## Code style
 
