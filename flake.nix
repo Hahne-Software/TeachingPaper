@@ -84,6 +84,9 @@
               claude-code
               pi-coding-agent
               rtk
+
+              # Git hosting
+              gh
             ] ++ lib.optionals stdenv.isLinux ([ pkgs.pkg-config pkgs.wrapGAppsHook3 ] ++ linuxLibs);
 
             RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";

@@ -22,3 +22,17 @@
 - Versioning: SemVer; keep version in sync in `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`
 - Release: bump version + changelog via PR, then tag the merge commit on `main` as `vX.Y.Z`; the tag push triggers the release build
 - Only release commits are tagged, not every commit on `main`
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in GitHub Issues (`Hahne-Software/TeachingPaper`) via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary: needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
