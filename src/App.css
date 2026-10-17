@@ -38,6 +38,10 @@ body,
   list-style: none;
 }
 
+.sidebar li + li {
+  margin-top: 8px;
+}
+
 .palette-entry {
   display: flex;
   align-items: center;
@@ -119,6 +123,32 @@ body,
 .heading-level-3 {
   font-size: 1.25rem;
   font-weight: 600;
+}
+
+.body-text {
+  min-height: 1.5em;
+  cursor: text;
+}
+
+.body-text .tiptap {
+  outline: none;
+  overflow-wrap: anywhere;
+}
+
+.body-text .tiptap p {
+  margin: 0 0 0.5em;
+}
+
+.body-text .tiptap p:last-child {
+  margin-bottom: 0;
+}
+
+.body-text .tiptap p.is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: #aaa;
+  pointer-events: none;
 }
 
 @media (prefers-color-scheme: dark) {
