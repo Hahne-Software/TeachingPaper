@@ -29,17 +29,25 @@ const normalizeRuns = (runs: TextRun[]): TextRun[] =>
         : [...merged, { ...run }];
     }, []);
 
+/** A line break (Shift+Enter) is stored as a newline inside the run text. */
+const toTiptapNodes = (run: TextRun): JSONContent[] => {
+  const active = marks.filter((mark) => run[mark]);
+  const withMarks = (node: JSONContent): JSONContent =>
+    active.length > 0
+      ? { ...node, marks: active.map((type) => ({ type })) }
+      : node;
+  return run.text
+    .split('\n')
+    .flatMap((line, index): JSONContent[] => [
+      ...(index > 0 ? [withMarks({ type: 'hardBreak' })] : []),
+      ...(line !== '' ? [withMarks({ type: 'text', text: line })] : []),
+    ]);
+};
+
 export const toTiptapDoc = (data: BodyTextData): JSONContent => ({
   type: 'doc',
   content: data.paragraphs.map((runs) => {
-    const content = normalizeRuns(runs).map((run): JSONContent => {
-      const active = marks.filter((mark) => run[mark]);
-      return {
-        type: 'text',
-        text: run.text,
-        ...(active.length > 0 && { marks: active.map((type) => ({ type })) }),
-      };
-    });
+    const content = normalizeRuns(runs).flatMap(toTiptapNodes);
     return content.length > 0
       ? { type: 'paragraph', content }
       : { type: 'paragraph' };
@@ -52,7 +60,7 @@ export const fromTiptapDoc = (doc: JSONContent): BodyTextData => {
       (paragraph.content ?? []).map((node) => {
         const types = (node.marks ?? []).map((mark) => mark.type);
         return {
-          text: node.text ?? '',
+          text: node.type === 'hardBreak' ? '\n' : (node.text ?? ''),
           bold: types.includes('bold'),
           italic: types.includes('italic'),
           underline: types.includes('underline'),

@@ -178,6 +178,17 @@ describe('Body Text editor schema', () => {
     ]);
   });
 
+  it('inserts a line break within the paragraph on Shift+Enter', () => {
+    const editor = create();
+    editor.commands.insertContent('One');
+    editor.commands.setHardBreak();
+    editor.commands.insertContent('Two');
+
+    expect(fromTiptapDoc(editor.getJSON()).paragraphs).toEqual([
+      [{ text: 'One\nTwo', bold: false, italic: false, underline: false }],
+    ]);
+  });
+
   it('drops lists, links, colours and alignment on paste', () => {
     const editor = create();
     // Pasted HTML is parsed against the schema, exactly as ProseMirror does.

@@ -38,6 +38,11 @@ describe('Body Text conversion', () => {
       'multiple paragraphs',
       { paragraphs: [[run('One')], [run('Two ', { bold: true }), run('x')]] },
     ],
+    ['a line break', { paragraphs: [[run('a\nb')]] }],
+    [
+      'a formatted line break',
+      { paragraphs: [[run('a'), run('\n', { bold: true }), run('b')]] },
+    ],
     ['an empty paragraph', { paragraphs: [[]] }],
     [
       'empty paragraphs between text',
@@ -104,5 +109,23 @@ describe('Body Text conversion', () => {
         { type: 'paragraph' },
       ],
     });
+  });
+
+  it('stores a line break as a newline in the run text', () => {
+    expect(
+      fromTiptapDoc({
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [
+              { type: 'text', text: 'a' },
+              { type: 'hardBreak' },
+              { type: 'text', text: 'b' },
+            ],
+          },
+        ],
+      }),
+    ).toEqual({ paragraphs: [[run('a\nb')]] });
   });
 });

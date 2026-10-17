@@ -1,5 +1,6 @@
 import { Bold } from '@tiptap/extension-bold';
 import { Document } from '@tiptap/extension-document';
+import { HardBreak } from '@tiptap/extension-hard-break';
 import { Italic } from '@tiptap/extension-italic';
 import { Paragraph } from '@tiptap/extension-paragraph';
 import { Text } from '@tiptap/extension-text';
@@ -15,12 +16,13 @@ import {
 } from './body-text-format';
 import { defineBlockType, type BlockViewProps } from './types';
 
-// Only paragraphs and the three marks exist in the schema, so anything else
+// Only paragraphs, line breaks and the three marks exist in the schema, so anything else
 // (lists, links, colours, alignment) is dropped on paste.
 export const bodyTextExtensions = [
   Document,
   Paragraph,
   Text,
+  HardBreak,
   Bold,
   Italic,
   Underline,
