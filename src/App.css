@@ -38,6 +38,10 @@ body,
   list-style: none;
 }
 
+.sidebar li + li {
+  margin-top: 8px;
+}
+
 .palette-entry {
   display: flex;
   align-items: center;
