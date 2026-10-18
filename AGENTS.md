@@ -9,8 +9,9 @@
 
 - use `pnpm tauri dev` to run the app locally
 - `pnpm test` (Vitest), `pnpm typecheck` and `pnpm lint`; `pnpm format` fixes formatting. The pre-commit hook and CI run all of them.
-- UI changes: verify in the browser against `pnpm dev` (port 1420) before reporting done; the Tauri shell is not needed.
+- UI changes: verify in the browser against `pnpm dev` (port 1420) before reporting done; the Tauri shell is not needed. Read `docs/agents/browser-verification.md` first.
 - Tiptap tests: read `docs/agents/testing-editors.md` first.
+- Drag-and-drop tests: read `docs/agents/testing-dnd.md` first.
 
 ## Code style
 
