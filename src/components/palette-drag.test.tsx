@@ -46,7 +46,9 @@ function stubLayout() {
       if (this.classList.contains('block')) {
         return rect(blocks().indexOf(this) * 100, 100);
       }
-      if (this.classList.contains('document-area')) return rect(0, 1000);
+      if (this.classList.contains('document-area'))
+        return rect(0, 1000, 200, 800);
+      if (this.classList.contains('page')) return rect(0, 1000, 300, 600);
       if (this.classList.contains('palette-entry')) return rect(0, 40, 0, 200);
       return rect(0, 0, 0, 0);
     },
@@ -157,6 +159,15 @@ describe('dragging a Block Type from the Block Palette', () => {
     drop({ x: 100, y: 500 });
     expect(blocks()).toHaveLength(2);
     expect(screen.queryByRole('separator')).toBeNull();
+  });
+
+  it('changes nothing when dropped on the grey area beside the Page', async () => {
+    setup();
+    await seedTwoBlocks();
+    await drag('Heading', { x: 250, y: 120 });
+    expect(screen.queryByRole('separator')).toBeNull();
+    drop({ x: 250, y: 120 });
+    expect(blocks()).toHaveLength(2);
   });
 
   it('changes nothing when cancelled with Escape', async () => {

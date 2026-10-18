@@ -11,6 +11,7 @@ import {
 import { blockTypes } from '../blocks/registry';
 import { dropIndex } from '../worksheet/drop-index';
 import { useWorksheet } from '../worksheet/context';
+import type { Block } from '../worksheet/reducer';
 
 export const WORKSHEET_DROPPABLE_ID = 'worksheet';
 
@@ -26,19 +27,24 @@ const pointerY = (event: DragMoveEvent): number | null => {
     : null;
 };
 
-const currentDropIndex = (event: DragMoveEvent): number | null => {
+/** Live viewport rects of the Blocks, in the order of the flat Block list. */
+const blockRects = (blocks: Block[]) =>
+  blocks.flatMap((block) => {
+    const element = document.querySelector(`[data-block-id="${block.id}"]`);
+    return element ? [element.getBoundingClientRect()] : [];
+  });
+
+const currentDropIndex = (
+  event: DragMoveEvent,
+  blocks: Block[],
+): number | null => {
   const y = pointerY(event);
   if (y === null || event.over?.id !== WORKSHEET_DROPPABLE_ID) return null;
-  return dropIndex(
-    Array.from(document.querySelectorAll('.block')).map((element) =>
-      element.getBoundingClientRect(),
-    ),
-    y,
-  );
+  return dropIndex(blockRects(blocks), y);
 };
 
 export function WorksheetDnd({ children }: { children: ReactNode }) {
-  const { dispatch } = useWorksheet();
+  const { state, dispatch } = useWorksheet();
   const [activeType, setActiveType] = useState<string | null>(null);
   const [index, setIndex] = useState<number | null>(null);
   // Pointer-based sensors; the distance keeps a plain click a click.
@@ -56,12 +62,12 @@ export function WorksheetDnd({ children }: { children: ReactNode }) {
       sensors={sensors}
       collisionDetection={pointerWithin}
       onDragStart={(event) => setActiveType(String(event.active.id))}
-      onDragMove={(event) => setIndex(currentDropIndex(event))}
+      onDragMove={(event) => setIndex(currentDropIndex(event, state.blocks))}
       onDragOver={(event) => {
         if (event.over?.id !== WORKSHEET_DROPPABLE_ID) setIndex(null);
       }}
       onDragEnd={(event) => {
-        const at = currentDropIndex(event as DragMoveEvent);
+        const at = currentDropIndex(event as DragMoveEvent, state.blocks);
         if (at !== null) {
           dispatch({
             type: 'insert',

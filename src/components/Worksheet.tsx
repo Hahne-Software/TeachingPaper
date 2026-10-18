@@ -25,7 +25,6 @@ export function Worksheet() {
 
   return (
     <main
-      ref={setNodeRef}
       className="document-area"
       onClick={(event) => {
         if (!(event.target as Element).closest('.block')) {
@@ -33,7 +32,7 @@ export function Worksheet() {
         }
       }}
     >
-      <div className="page">
+      <div ref={setNodeRef} className="page">
         {state.blocks.length === 0 && (
           <p className="page-hint">Drag a Block here from the left</p>
         )}
@@ -81,6 +80,7 @@ function BlockHost({
   return (
     <div
       className={selected ? 'block block-selected' : 'block'}
+      data-block-id={block.id}
       onClick={select}
       onFocus={select}
     >
