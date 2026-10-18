@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { BlockPalette } from './components/BlockPalette';
 import { PropertiesPanel } from './components/PropertiesPanel';
+import { WorksheetDnd } from './components/WorksheetDnd';
 import { Worksheet } from './components/Worksheet';
 import { WorksheetProvider } from './worksheet/context';
 import './App.css';
@@ -19,11 +20,13 @@ function App() {
 
   return (
     <WorksheetProvider>
-      <div className="editor">
-        <BlockPalette />
-        <Worksheet />
-        <PropertiesPanel />
-      </div>
+      <WorksheetDnd>
+        <div className="editor">
+          <BlockPalette />
+          <Worksheet />
+          <PropertiesPanel />
+        </div>
+      </WorksheetDnd>
     </WorksheetProvider>
   );
 }

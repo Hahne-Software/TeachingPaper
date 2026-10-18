@@ -1,11 +1,15 @@
-import { useEffect } from 'react';
+import { Fragment, useEffect } from 'react';
+import { useDroppable } from '@dnd-kit/core';
 import { blockTypes } from '../blocks/registry';
 import type { BlockTypeDefinition } from '../blocks/types';
 import { useWorksheet } from '../worksheet/context';
 import type { Block } from '../worksheet/reducer';
+import { WORKSHEET_DROPPABLE_ID, useInsertionIndex } from './WorksheetDnd';
 
 export function Worksheet() {
   const { state, dispatch } = useWorksheet();
+  const insertionIndex = useInsertionIndex();
+  const { setNodeRef } = useDroppable({ id: WORKSHEET_DROPPABLE_ID });
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -28,26 +32,35 @@ export function Worksheet() {
         }
       }}
     >
-      <div className="page">
+      <div ref={setNodeRef} className="page">
         {state.blocks.length === 0 && (
           <p className="page-hint">Drag a Block here from the left</p>
         )}
-        {state.blocks.map((block) => {
+        {state.blocks.map((block, index) => {
           const definition = blockTypes[block.type];
           if (!definition) return null;
           return (
-            <BlockHost
-              key={block.id}
-              block={block}
-              definition={definition}
-              autoFocus={block.id === state.selectedId}
-              selected={block.id === state.selectedId}
-            />
+            <Fragment key={block.id}>
+              {insertionIndex === index && <InsertionLine />}
+              <BlockHost
+                block={block}
+                definition={definition}
+                autoFocus={block.id === state.selectedId}
+                selected={block.id === state.selectedId}
+              />
+            </Fragment>
           );
         })}
+        {insertionIndex !== null && insertionIndex >= state.blocks.length && (
+          <InsertionLine />
+        )}
       </div>
     </main>
   );
+}
+
+function InsertionLine() {
+  return <div role="separator" className="insertion-line" />;
 }
 
 function BlockHost({
@@ -67,6 +80,7 @@ function BlockHost({
   return (
     <div
       className={selected ? 'block block-selected' : 'block'}
+      data-block-id={block.id}
       onClick={select}
       onFocus={select}
     >
