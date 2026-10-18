@@ -86,11 +86,14 @@ export function WorksheetDnd({ children }: { children: ReactNode }) {
       onDragEnd={(event) => {
         const at = currentDropIndex(event, pointerY.current, state.blocks);
         if (at !== null) {
-          dispatch({
-            type: 'insert',
-            blockType: String(event.active.id),
-            index: at,
-          });
+          const blockType = String(event.active.id);
+          // The new Block focuses itself on mount. Inside the pointer release, WebKit then
+          // clears the caret, so Blocks inserted there can't be typed into; wait two frames.
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() =>
+              dispatch({ type: 'insert', blockType, index: at }),
+            ),
+          );
         }
         end();
       }}
