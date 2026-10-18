@@ -1,4 +1,11 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -20,13 +27,6 @@ const InsertionIndexContext = createContext<number | null>(null);
 /** Index where the dragged Block Type would be inserted, or null when not over the Worksheet. */
 export const useInsertionIndex = () => useContext(InsertionIndexContext);
 
-const pointerY = (event: DragMoveEvent): number | null => {
-  const origin = event.activatorEvent as Partial<PointerEvent>;
-  return typeof origin.clientY === 'number'
-    ? origin.clientY + event.delta.y
-    : null;
-};
-
 /** Live viewport rects of the Blocks, in the order of the flat Block list. */
 const blockRects = (blocks: Block[]) =>
   blocks.flatMap((block) => {
@@ -35,18 +35,29 @@ const blockRects = (blocks: Block[]) =>
   });
 
 const currentDropIndex = (
-  event: DragMoveEvent,
+  event: Pick<DragMoveEvent, 'over'>,
+  pointerY: number | null,
   blocks: Block[],
 ): number | null => {
-  const y = pointerY(event);
-  if (y === null || event.over?.id !== WORKSHEET_DROPPABLE_ID) return null;
-  return dropIndex(blockRects(blocks), y);
+  if (pointerY === null || event.over?.id !== WORKSHEET_DROPPABLE_ID) {
+    return null;
+  }
+  return dropIndex(blockRects(blocks), pointerY);
 };
 
 export function WorksheetDnd({ children }: { children: ReactNode }) {
   const { state, dispatch } = useWorksheet();
   const [activeType, setActiveType] = useState<string | null>(null);
   const [index, setIndex] = useState<number | null>(null);
+  // dnd-kit's drag delta includes scrolling, so track the pointer's viewport position itself.
+  const pointerY = useRef<number | null>(null);
+  useEffect(() => {
+    const track = (event: PointerEvent) => {
+      pointerY.current = event.clientY;
+    };
+    window.addEventListener('pointermove', track, true);
+    return () => window.removeEventListener('pointermove', track, true);
+  }, []);
   // Pointer-based sensors; the distance keeps a plain click a click.
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -61,13 +72,19 @@ export function WorksheetDnd({ children }: { children: ReactNode }) {
     <DndContext
       sensors={sensors}
       collisionDetection={pointerWithin}
-      onDragStart={(event) => setActiveType(String(event.active.id))}
-      onDragMove={(event) => setIndex(currentDropIndex(event, state.blocks))}
+      onDragStart={(event) => {
+        const origin = event.activatorEvent as Partial<PointerEvent>;
+        pointerY.current = origin.clientY ?? null;
+        setActiveType(String(event.active.id));
+      }}
+      onDragMove={(event) =>
+        setIndex(currentDropIndex(event, pointerY.current, state.blocks))
+      }
       onDragOver={(event) => {
         if (event.over?.id !== WORKSHEET_DROPPABLE_ID) setIndex(null);
       }}
       onDragEnd={(event) => {
-        const at = currentDropIndex(event as DragMoveEvent, state.blocks);
+        const at = currentDropIndex(event, pointerY.current, state.blocks);
         if (at !== null) {
           dispatch({
             type: 'insert',
