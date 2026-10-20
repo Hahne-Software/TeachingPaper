@@ -14,6 +14,10 @@ export default tseslint.config(
     rules: reactHooks.configs.recommended.rules,
   },
   {
+    files: ['docs/agents/*.mjs'],
+    languageOptions: { globals: globals.node },
+  },
+  {
     // The Worksheet reducer is pure model code: no UI, no Block Type modules.
     files: ['src/worksheet/reducer*.ts'],
     rules: {

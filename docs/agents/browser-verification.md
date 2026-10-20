@@ -2,6 +2,14 @@
 
 jsdom has no layout, scrolling or engine behaviour, so drag, scroll, focus and caret bugs only show in a real browser. Tauri renders with WebKitGTK on Linux: check focus, caret and selection there, because Firefox passing proves nothing about them.
 
+## Done means seen
+
+A UI change counts as verified only after you have read, with the Read tool, a WebKitGTK screenshot of each new or changed state (resting, hover, selected). DOM values such as `display` or coordinates cannot show an ugly, misaligned or cramped control. Report which engine you checked and which states you did not look at (for example dark mode).
+
+## WebKitGTK (the Tauri engine)
+
+Run `node docs/agents/webkit-run.mjs <steps-file.mjs> <out-dir>` with the dev server up, under `env -u LD_LIBRARY_PATH -u LD_PRELOAD`. It starts and stops the driver, and the steps file (written in the scratchpad) gets `click`, `key`, `exec`, `shot` and `sleep`; the header of the script has the details.
+
 ## Firefox (no browser tool connected)
 
 1. Install `puppeteer-core` in the scratchpad directory, never in the repo (`PUPPETEER_SKIP_DOWNLOAD=1 npm i puppeteer-core`).
@@ -10,12 +18,9 @@ jsdom has no layout, scrolling or engine behaviour, so drag, scroll, focus and c
 4. Drive the real mouse (`page.mouse.move/down/up`) in many small steps with a short sleep between them.
 5. Read results from `document.activeElement`, `getSelection().rangeCount` and the DOM.
 
-## WebKitGTK (the Tauri engine)
+## WebKitGTK by hand
 
-1. Start `WebKitWebDriver --port=4444` from the `webkitgtk` store path (`$(dirname $(which WebKitWebDriver))`).
-2. Create a W3C session with `browserName: 'MiniBrowser'` and `webkitgtk:browserOptions.binary` set to `<webkitgtk>/libexec/webkit2gtk-4.1/MiniBrowser`, `args: ['--automation']`, over plain `fetch`.
-3. Use `/actions` for pointer and key input, and `/execute/sync` to read state. A window opens on the desktop.
-4. Type after an action to prove the caret exists: `document.activeElement` can be right while keystrokes land nowhere.
+For input the script cannot express: start `WebKitWebDriver --port=4444` from the `webkitgtk` store path (`$(dirname $(which WebKitWebDriver))`), create a W3C session with `browserName: 'MiniBrowser'`, `webkitgtk:browserOptions.binary` set to `<webkitgtk>/libexec/webkit2gtk-4.1/MiniBrowser` and `args: ['--automation']`, then use `/actions` for pointer and key input. Type after an action to prove the caret exists: `document.activeElement` can be right while keystrokes land nowhere.
 
 ## Cleanup
 
