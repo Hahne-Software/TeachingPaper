@@ -1,6 +1,8 @@
 // Drives the app in WebKitGTK (the Tauri engine) through WebKitWebDriver. No dependencies.
-// Usage (dev server on :1420 running): node docs/agents/webkit-run.mjs <steps-file.mjs> <out-dir>
+// Usage: pnpm verify:ui <steps-file.mjs> <out-dir>
+// Starts `pnpm dev` when :1420 is free and stops it afterwards; a server that was already running stays up.
 // The steps file default-exports `async ({ exec, key, click, shot, sleep }) => {}`.
+// `click` hits the first match only; reach any other element with `exec` (e.g. `document.querySelectorAll(sel)[1].click()`).
 import { spawn } from 'node:child_process';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';
@@ -13,6 +15,27 @@ if (!stepsFile || !outDir) {
   process.exit(1);
 }
 mkdirSync(outDir, { recursive: true });
+
+const devUrl = 'http://localhost:1420';
+const devUp = () =>
+  fetch(devUrl).then(
+    () => true,
+    () => false,
+  );
+// Own process group, so stopping it takes vite down with pnpm.
+const devServer = (await devUp())
+  ? null
+  : spawn('pnpm', ['dev'], { stdio: 'ignore', detached: true });
+const stopDevServer = () => {
+  if (devServer?.pid) process.kill(-devServer.pid);
+};
+for (let waited = 0; devServer && !(await devUp()); waited += 250) {
+  if (waited > 30000) {
+    stopDevServer();
+    throw new Error('dev server did not come up on :1420');
+  }
+  await new Promise((r) => setTimeout(r, 250));
+}
 
 const driverPath = execFileSync('which', ['WebKitWebDriver'], {
   encoding: 'utf8',
@@ -97,4 +120,5 @@ try {
   await call('DELETE', sp);
 } finally {
   driver.kill();
+  stopDevServer();
 }
