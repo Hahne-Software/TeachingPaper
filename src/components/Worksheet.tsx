@@ -10,9 +10,16 @@ export function Worksheet() {
   const { state, dispatch } = useWorksheet();
   const insertionIndex = useInsertionIndex();
   const { setNodeRef } = useDroppable({ id: WORKSHEET_DROPPABLE_ID });
+  const { selectedId } = state;
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        if (selectedId === null || isTextEntry(document.activeElement)) return;
+        event.preventDefault();
+        dispatch({ type: 'remove', id: selectedId });
+        return;
+      }
       if (event.key !== 'Escape') return;
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
@@ -21,7 +28,7 @@ export function Worksheet() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [dispatch]);
+  }, [dispatch, selectedId]);
 
   return (
     <main
@@ -59,6 +66,9 @@ export function Worksheet() {
   );
 }
 
+const isTextEntry = (element: Element | null) =>
+  element?.closest('input, textarea, select, [contenteditable]') != null;
+
 function InsertionLine() {
   return <div role="separator" className="insertion-line" />;
 }
@@ -84,6 +94,19 @@ function BlockHost({
       onClick={select}
       onFocus={select}
     >
+      <div className="block-handle">
+        <button
+          type="button"
+          className="block-delete"
+          aria-label="Delete Block"
+          onClick={(event) => {
+            event.stopPropagation();
+            dispatch({ type: 'remove', id: block.id });
+          }}
+        >
+          ×
+        </button>
+      </div>
       <View
         data={block.data}
         autoFocus={autoFocus}

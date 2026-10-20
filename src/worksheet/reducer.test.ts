@@ -158,3 +158,49 @@ describe('worksheetReducer selection', () => {
     expect(state.blocks.map((b) => b.id)).toEqual([...ids, state.selectedId]);
   });
 });
+
+describe('worksheetReducer remove', () => {
+  const twoBlocks = () => {
+    let state = initialState;
+    state = worksheetReducer(state, { type: 'insert', blockType: 'heading' });
+    state = worksheetReducer(state, { type: 'insert', blockType: 'heading' });
+    return state;
+  };
+
+  it('removes the Block', () => {
+    const state = twoBlocks();
+    const [first, second] = state.blocks;
+
+    const next = worksheetReducer(state, { type: 'remove', id: first.id });
+
+    expect(next.blocks.map((b) => b.id)).toEqual([second.id]);
+  });
+
+  it('clears the selection when removing the selected Block', () => {
+    const state = twoBlocks();
+
+    const next = worksheetReducer(state, {
+      type: 'remove',
+      id: state.selectedId!,
+    });
+
+    expect(next.selectedId).toBeNull();
+  });
+
+  it('keeps the selection when removing another Block', () => {
+    const state = twoBlocks();
+
+    const next = worksheetReducer(state, {
+      type: 'remove',
+      id: state.blocks[0].id,
+    });
+
+    expect(next.selectedId).toBe(state.selectedId);
+  });
+
+  it('leaves the state unchanged for an unknown id', () => {
+    const state = twoBlocks();
+
+    expect(worksheetReducer(state, { type: 'remove', id: 'nope' })).toBe(state);
+  });
+});

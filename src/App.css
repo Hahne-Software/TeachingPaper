@@ -159,6 +159,7 @@ body,
 }
 
 .block {
+  position: relative;
   margin: 0 -8px;
   padding: 0 8px;
   border-radius: 4px;
@@ -167,6 +168,39 @@ body,
 
 .block-selected {
   outline-color: #3b82f6;
+}
+
+/* Sits in the Page's left margin; wide enough to bridge the gap so hover persists. */
+.block-handle {
+  position: absolute;
+  top: 0;
+  right: 100%;
+  display: none;
+  padding-right: 4px;
+}
+
+.block:hover > .block-handle,
+.block-selected > .block-handle,
+.block-handle:focus-within {
+  display: flex;
+}
+
+.block-delete {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  font: inherit;
+  line-height: 1;
+  color: #666;
+  background: transparent;
+  border: 1px solid rgba(127, 127, 127, 0.4);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.block-delete:hover {
+  color: #b91c1c;
+  border-color: #b91c1c;
 }
 
 .properties-panel .field {
