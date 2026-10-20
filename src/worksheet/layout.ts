@@ -14,8 +14,8 @@ const LINE_CLEARANCE = 2;
 export type Placement = { page: number; top: number; height: number };
 
 /**
- * Positions every Block on the screen stack of A4 Pages. An oversized Block keeps its Page's
- * A4 size and simply overflows it, as it will in the PDF.
+ * Positions every Block on the screen stack of A4 Pages. An oversized Block is clipped to the
+ * Page's content area, so its placed height never exceeds it.
  */
 export const layout = (heights: number[]) => {
   const { pages, oversized } = paginate({
@@ -35,7 +35,7 @@ export const layout = (heights: number[]) => {
           indices
             .slice(0, position)
             .reduce((y, before) => y + heights[before] + BLOCK_SPACING, 0),
-        height: heights[index],
+        height: Math.min(heights[index], PAGE_CONTENT_HEIGHT),
       })),
     )
     .sort((a, b) => a.index - b.index);

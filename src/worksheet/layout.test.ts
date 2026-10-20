@@ -30,6 +30,11 @@ describe('layout', () => {
     expect(pageHeights).toEqual([PAGE_HEIGHT, PAGE_HEIGHT]);
   });
 
+  it('clips an oversized Block to the Page content height', () => {
+    const { placements } = layout([PAGE_CONTENT_HEIGHT + 500]);
+    expect(placements[0].height).toBe(PAGE_CONTENT_HEIGHT);
+  });
+
   it('keeps every Page A4 even when a Block overflows it', () => {
     const { pageHeights, oversized, placements } = layout([
       PAGE_CONTENT_HEIGHT + 500,

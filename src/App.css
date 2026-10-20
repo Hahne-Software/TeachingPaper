@@ -263,12 +263,20 @@ body,
   outline-color: #b91c1c;
 }
 
-/* Floats in the Page's top margin so it never changes the Block's measured height. */
+/* Content past the Page's content area is hidden; the warning marks the cut. */
+.block-content {
+  overflow: hidden;
+}
+
 .block-warning {
   position: absolute;
-  bottom: 100%;
-  left: 8px;
-  margin: 0 0 4px;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  margin: 0;
+  padding: 6px 8px;
   font-size: 0.8rem;
-  color: #b91c1c;
+  color: #fff;
+  background: #b91c1c;
+  border-radius: 0 0 4px 4px;
 }

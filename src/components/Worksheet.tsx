@@ -18,6 +18,7 @@ import {
 } from '../worksheet/layout';
 import {
   BLOCK_BLEED,
+  PAGE_CONTENT_HEIGHT,
   PAGE_CONTENT_WIDTH,
   PAGE_MARGIN,
   PAGE_WIDTH,
@@ -168,7 +169,8 @@ function BlockHost({
   const [element, setElement] = useState<HTMLDivElement | null>(null);
   useLayoutEffect(() => {
     if (!element) return;
-    const measure = () => onHeight(block.id, element.offsetHeight);
+    // scrollHeight is the natural height, unaffected by clipping an oversized Block.
+    const measure = () => onHeight(block.id, element.scrollHeight);
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(element);
@@ -178,7 +180,6 @@ function BlockHost({
   const select = () => dispatch({ type: 'select', id: block.id });
   return (
     <div
-      ref={setElement}
       className={
         'block' +
         (selected ? ' block-selected' : '') +
@@ -219,16 +220,23 @@ function BlockHost({
           </svg>
         </button>
       </div>
+      <div
+        ref={setElement}
+        className="block-content"
+        style={{ maxHeight: PAGE_CONTENT_HEIGHT }}
+      >
+        <View
+          data={block.data}
+          autoFocus={autoFocus}
+          onChange={(data) => dispatch({ type: 'update', id: block.id, data })}
+        />
+      </div>
       {oversized && (
         <p role="alert" className="block-warning">
-          This Block is taller than a Page and overflows it.
+          Content overflows the Page and is hidden. Move the overflowing text
+          into a new Block on the next Page.
         </p>
       )}
-      <View
-        data={block.data}
-        autoFocus={autoFocus}
-        onChange={(data) => dispatch({ type: 'update', id: block.id, data })}
-      />
     </div>
   );
 }

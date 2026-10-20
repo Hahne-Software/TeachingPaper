@@ -10,24 +10,20 @@ import { WorksheetDnd } from './WorksheetDnd';
 
 // A Page's content area is PAGE_CONTENT_HEIGHT (979px) high and Blocks are 12px apart.
 let heights: number[] = [];
-const original = Object.getOwnPropertyDescriptor(
-  HTMLElement.prototype,
-  'offsetHeight',
-);
 
 beforeEach(() => {
   heights = [];
-  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+  Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
     configurable: true,
     get(this: HTMLElement) {
-      const index = blocks().indexOf(this);
+      const index = blocks().indexOf(this.closest('.block') as HTMLElement);
+      if (!this.classList.contains('block-content')) return 0;
       return index === -1 ? 0 : (heights[index] ?? 100);
     },
   });
 });
 afterEach(() => {
-  if (original)
-    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', original);
+  delete (HTMLElement.prototype as { scrollHeight?: number }).scrollHeight;
 });
 
 function setup() {
@@ -109,6 +105,6 @@ describe('automatic pagination', () => {
     expect(screen.queryByRole('alert')).toBeNull();
 
     resize(0, 1200);
-    expect(screen.getByRole('alert')).toHaveTextContent(/taller than a Page/);
+    expect(screen.getByRole('alert')).toHaveTextContent(/overflows the Page/);
   });
 });
