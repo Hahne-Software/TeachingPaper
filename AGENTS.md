@@ -1,5 +1,6 @@
 # TeachingPaper - desktop app for teaching material
 
+- Communication with agent in german, code, documentation, issues, PRs, specs and all other file in english
 - Multi-platform (macOS, Linux, Windows) client desktop app
 - Tauri as app framework
 - Uses pnpm for dependency management
@@ -35,6 +36,10 @@ Issues are tracked in GitHub Issues (`Hahne-Software/TeachingPaper`) via the `gh
 ### Triage labels
 
 Default vocabulary: needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix. See `docs/agents/triage-labels.md`.
+
+### Ideas
+
+Start a message with `Neue Idee:` to capture an idea without touching code (skill `idea`). Ideas live in `docs/ideas/`; the `ideas-review` skill keeps the overview current and finds low-hanging fruits.
 
 ### Domain docs
 
