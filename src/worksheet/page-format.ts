@@ -6,3 +6,5 @@ export const PAGE_CONTENT_WIDTH = PAGE_WIDTH - 2 * PAGE_MARGIN;
 export const PAGE_CONTENT_HEIGHT = PAGE_HEIGHT - 2 * PAGE_MARGIN;
 /** Vertical space between two consecutive Blocks on a Page. */
 export const BLOCK_SPACING = 12;
+/** How far a Block's frame (selection outline, handle) extends past the content area on each side. */
+export const BLOCK_BLEED = 8;

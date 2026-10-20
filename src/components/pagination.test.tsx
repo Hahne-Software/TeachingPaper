@@ -8,7 +8,7 @@ import { BlockPalette } from './BlockPalette';
 import { Worksheet } from './Worksheet';
 import { WorksheetDnd } from './WorksheetDnd';
 
-// A Page's content area is 979px high and Blocks are 12px apart.
+// A Page's content area is PAGE_CONTENT_HEIGHT (979px) high and Blocks are 12px apart.
 let heights: number[] = [];
 const original = Object.getOwnPropertyDescriptor(
   HTMLElement.prototype,
