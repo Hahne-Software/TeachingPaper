@@ -48,7 +48,7 @@ function stubLayout() {
       }
       if (this.classList.contains('document-area'))
         return rect(0, 1000, 200, 800);
-      if (this.classList.contains('page')) return rect(0, 1000, 300, 600);
+      if (this.classList.contains('page-stack')) return rect(0, 1000, 300, 600);
       if (this.classList.contains('palette-entry')) return rect(0, 40, 0, 200);
       return rect(0, 0, 0, 0);
     },
