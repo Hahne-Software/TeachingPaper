@@ -173,8 +173,9 @@ body,
 /* Sits in the Page's left margin; wide enough to bridge the gap so hover persists. */
 .block-handle {
   position: absolute;
-  top: 0;
+  top: 50%;
   right: 100%;
+  transform: translateY(-50%);
   display: none;
   padding-right: 4px;
 }
