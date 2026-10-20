@@ -13,6 +13,7 @@ export type WorksheetState = {
 export type WorksheetAction =
   | { type: 'insert'; blockType: string; index?: number }
   | { type: 'update'; id: string; data: unknown }
+  | { type: 'remove'; id: string }
   | { type: 'select'; id: string }
   | { type: 'deselect' };
 
@@ -56,6 +57,15 @@ export const createWorksheetReducer =
           nextId: state.nextId + 1,
         };
       }
+      case 'remove':
+        return state.blocks.some((b) => b.id === action.id)
+          ? {
+              ...state,
+              blocks: state.blocks.filter((b) => b.id !== action.id),
+              selectedId:
+                state.selectedId === action.id ? null : state.selectedId,
+            }
+          : state;
       case 'select':
         return state.blocks.some((b) => b.id === action.id)
           ? { ...state, selectedId: action.id }
