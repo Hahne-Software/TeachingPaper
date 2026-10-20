@@ -34,7 +34,7 @@ const lastData = (onChange: ReturnType<typeof vi.fn>) =>
 describe('Body Text', () => {
   it('starts empty with a placeholder and focus', async () => {
     const { editor } = setup();
-    expect(await screen.findByRole('textbox')).toHaveFocus();
+    await waitFor(() => expect(editor).toHaveFocus());
     expect(editor.querySelector('p')).toHaveAttribute(
       'data-placeholder',
       'Enter text…',
