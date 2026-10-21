@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "verify:ui": "env -u LD_LIBRARY_PATH -u LD_PRELOAD node docs/agents/webkit-run.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

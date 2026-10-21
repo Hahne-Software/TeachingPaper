@@ -8,7 +8,7 @@ A UI change counts as verified only after you have read, with the Read tool, a W
 
 ## WebKitGTK (the Tauri engine)
 
-Run `node docs/agents/webkit-run.mjs <steps-file.mjs> <out-dir>` with the dev server up, under `env -u LD_LIBRARY_PATH -u LD_PRELOAD`. It starts and stops the driver, and the steps file (written in the scratchpad) gets `click`, `key`, `exec`, `shot` and `sleep`; the header of the script has the details.
+Run `pnpm verify:ui <steps-file.mjs> <out-dir>`. It starts `pnpm dev` when port 1420 is free, stops it afterwards, and strips the Nix `LD_*` variables. The steps file (written in the scratchpad) gets `click`, `key`, `exec`, `shot` and `sleep`; the header of the script has the details. `click` hits the first match only, so reach any other element with `exec` (`document.querySelectorAll(sel)[1].click()`).
 
 ## Firefox (no browser tool connected)
 
@@ -24,4 +24,4 @@ For input the script cannot express: start `WebKitWebDriver --port=4444` from th
 
 ## Cleanup
 
-Stop every server and driver you start, by PID (`kill <pid>`; find it with `ss -ltnp | grep 1420`). `pkill -f` can match your own shell. A leftover `pnpm dev` holds port 1420 and stops `pnpm tauri dev` from starting (`strictPort`).
+Stop every server and driver you start, by PID (`kill <pid>`; find it with `ss -ltnp | grep 1420`). `pkill -f` can match your own shell. `pnpm verify:ui` cleans up after itself; a `pnpm dev` you started by hand holds port 1420 and stops `pnpm tauri dev` from starting (`strictPort`).
