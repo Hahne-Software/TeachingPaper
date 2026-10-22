@@ -1,0 +1,21 @@
+# Categories for the generated release notes (`gh release create --generate-notes`).
+# Labels are set automatically from the PR title by .github/workflows/pr-title.yml.
+changelog:
+  exclude:
+    labels:
+      - internal
+  categories:
+    - title: '⚠️ Breaking changes'
+      labels: [breaking-change]
+    - title: '✨ Features'
+      labels: [feature]
+    - title: '🐛 Bug fixes'
+      labels: [bug]
+    - title: '⚡ Performance'
+      labels: [performance]
+    - title: '📚 Documentation'
+      labels: [documentation]
+    - title: '🧹 Maintenance'
+      labels: [maintenance]
+    - title: 'Other changes'
+      labels: ['*']

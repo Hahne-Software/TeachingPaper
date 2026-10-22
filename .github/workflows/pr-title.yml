@@ -1,0 +1,66 @@
+name: PR title
+
+# Validates the PR title as a Conventional Commit and derives labels from it.
+# The labels drive the categories in the release notes (.github/release.yml).
+# Runs from the base branch and never checks out PR code.
+on:
+  pull_request_target:
+    types: [opened, edited, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const typeLabels = {
+              feat: "feature",
+              fix: "bug",
+              perf: "performance",
+              docs: "documentation",
+              chore: "maintenance",
+              ci: "maintenance",
+              build: "maintenance",
+              test: "maintenance",
+              refactor: "maintenance",
+              style: "maintenance",
+              revert: "maintenance",
+            };
+            const managed = [
+              ...new Set(Object.values(typeLabels)),
+              "breaking-change",
+              "internal",
+            ];
+
+            const title = context.payload.pull_request.title;
+            const match = title.match(/^(\w+)(?:\(([^)]+)\))?(!)?: \S/);
+            if (!match || !(match[1] in typeLabels)) {
+              core.setFailed(
+                `PR title "${title}" is not a Conventional Commit. ` +
+                  `Expected "<type>(<scope>): <summary>" with type one of: ${Object.keys(typeLabels).join(", ")}.`,
+              );
+              return;
+            }
+            const [, type, scope, bang] = match;
+
+            const wanted = new Set([typeLabels[type]]);
+            if (bang) wanted.add("breaking-change");
+            if (scope === "dev") wanted.add("internal");
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const current = context.payload.pull_request.labels.map((l) => l.name);
+
+            const toRemove = current.filter((l) => managed.includes(l) && !wanted.has(l));
+            const toAdd = [...wanted].filter((l) => !current.includes(l));
+
+            for (const name of toRemove) {
+              await github.rest.issues.removeLabel({ owner, repo, issue_number, name });
+            }
+            if (toAdd.length) {
+              await github.rest.issues.addLabels({ owner, repo, issue_number, labels: toAdd });
+            }
