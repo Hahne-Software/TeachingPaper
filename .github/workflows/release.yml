@@ -31,22 +31,7 @@ jobs:
 
       - name: Check versions match the tag
         if: startsWith(steps.name.outputs.label, 'v')
-        run: |
-          expected="${{ steps.name.outputs.label }}"
-          expected="${expected#v}"
-          versions=(
-            "package.json=$(node -p "require('./package.json').version")"
-            "tauri.conf.json=$(node -p "require('./src-tauri/tauri.conf.json').version")"
-            "Cargo.toml=$(sed -n '/^\[package\]/,/^\[/{s/^version *= *"\(.*\)"/\1/p}' src-tauri/Cargo.toml | head -n 1)"
-          )
-          status=0
-          for entry in "${versions[@]}"; do
-            if [ "${entry#*=}" != "$expected" ]; then
-              echo "::error::${entry%%=*} is ${entry#*=}, tag says $expected"
-              status=1
-            fi
-          done
-          exit $status
+        run: node scripts/version.mjs check "${{ steps.name.outputs.label }}"
 
   build:
     needs: prepare
