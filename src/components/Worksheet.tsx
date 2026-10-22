@@ -26,7 +26,7 @@ import {
 import type { Block } from '../worksheet/reducer';
 import {
   WORKSHEET_DROPPABLE_ID,
-  blockDragData,
+  blockDraggable,
   useInsertionIndex,
 } from './WorksheetDnd';
 
@@ -187,7 +187,7 @@ function BlockHost({
     listeners,
     setNodeRef: setGripRef,
     isDragging,
-  } = useDraggable({ id: `block:${block.id}`, data: blockDragData(block.id) });
+  } = useDraggable(blockDraggable(block.id));
   return (
     <div
       className={
@@ -197,6 +197,7 @@ function BlockHost({
         (isDragging ? ' block-dragging' : '')
       }
       data-block-id={block.id}
+      data-block-type={block.type}
       data-page={placement?.page}
       style={{
         top: placement?.top ?? 0,

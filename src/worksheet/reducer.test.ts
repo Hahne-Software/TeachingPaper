@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { createWorksheetReducer, initialState } from './reducer';
+import {
+  createWorksheetReducer,
+  initialState,
+  type WorksheetState,
+} from './reducer';
 
 const worksheetReducer = createWorksheetReducer({
   heading: () => ({ text: '', level: 1 }),
@@ -206,15 +210,13 @@ describe('worksheetReducer remove', () => {
 });
 
 describe('worksheetReducer move', () => {
-  const threeBlocks = () => {
-    let state = initialState;
-    for (let i = 0; i < 3; i++) {
-      state = worksheetReducer(state, { type: 'insert', blockType: 'heading' });
-    }
-    return state;
-  };
-  const ids = (state: ReturnType<typeof threeBlocks>) =>
-    state.blocks.map((b) => b.id);
+  const threeBlocks = () =>
+    Array.from({ length: 3 }).reduce<WorksheetState>(
+      (state) =>
+        worksheetReducer(state, { type: 'insert', blockType: 'heading' }),
+      initialState,
+    );
+  const ids = (state: WorksheetState) => state.blocks.map((b) => b.id);
 
   it('moves a Block to the first position', () => {
     const state = threeBlocks();

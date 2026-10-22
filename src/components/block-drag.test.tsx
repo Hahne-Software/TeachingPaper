@@ -20,9 +20,8 @@ function setup() {
 }
 
 const blocks = () => Array.from(document.querySelectorAll('.block'));
-/** Block Types in Worksheet order, as the marker class of each rendered Block. */
-const order = () =>
-  blocks().map((b) => (b.querySelector('.heading') ? 'heading' : 'body'));
+/** Block Type ids in Worksheet order. */
+const order = () => blocks().map((b) => (b as HTMLElement).dataset.blockType);
 const grip = (index: number) =>
   blocks()[index].querySelector<HTMLElement>('[aria-label="Drag Block"]')!;
 
@@ -57,7 +56,7 @@ describe('reordering Blocks by dragging their grip', () => {
     await dragFrom(grip(1), { x: 500, y: 20 });
     await screen.findByRole('separator');
     drop({ x: 500, y: 20 });
-    await waitFor(() => expect(order()).toEqual(['body', 'heading']));
+    await waitFor(() => expect(order()).toEqual(['body-text', 'heading']));
     expect(blocks()[0]).toHaveClass('block-selected');
     expect(screen.queryByRole('separator')).toBeNull();
   });
@@ -67,7 +66,7 @@ describe('reordering Blocks by dragging their grip', () => {
     await seedHeadingThenBody();
     await dragFrom(grip(0), { x: 500, y: 180 });
     drop({ x: 500, y: 180 });
-    await waitFor(() => expect(order()).toEqual(['body', 'heading']));
+    await waitFor(() => expect(order()).toEqual(['body-text', 'heading']));
   });
 
   it('does not insert a new Block', async () => {
@@ -75,7 +74,7 @@ describe('reordering Blocks by dragging their grip', () => {
     await seedHeadingThenBody();
     await dragFrom(grip(0), { x: 500, y: 180 });
     drop({ x: 500, y: 180 });
-    await waitFor(() => expect(order()).toEqual(['body', 'heading']));
+    await waitFor(() => expect(order()).toEqual(['body-text', 'heading']));
     expect(blocks()).toHaveLength(2);
   });
 
@@ -86,7 +85,7 @@ describe('reordering Blocks by dragging their grip', () => {
     await dragFrom(content, { x: 500, y: 180 });
     expect(screen.queryByRole('separator')).toBeNull();
     drop({ x: 500, y: 180 });
-    expect(order()).toEqual(['heading', 'body']);
+    expect(order()).toEqual(['heading', 'body-text']);
   });
 
   it('changes nothing when cancelled with Escape', async () => {
@@ -96,7 +95,7 @@ describe('reordering Blocks by dragging their grip', () => {
     await screen.findByRole('separator');
     fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' });
     drop({ x: 500, y: 180 });
-    expect(order()).toEqual(['heading', 'body']);
+    expect(order()).toEqual(['heading', 'body-text']);
     expect(screen.queryByRole('separator')).toBeNull();
   });
 
@@ -105,7 +104,7 @@ describe('reordering Blocks by dragging their grip', () => {
     await seedHeadingThenBody();
     await dragFrom(grip(0), { x: 100, y: 500 });
     drop({ x: 100, y: 500 });
-    expect(order()).toEqual(['heading', 'body']);
+    expect(order()).toEqual(['heading', 'body-text']);
     expect(screen.queryByRole('separator')).toBeNull();
   });
 });

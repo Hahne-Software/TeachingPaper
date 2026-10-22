@@ -28,14 +28,18 @@ export const WORKSHEET_DROPPABLE_ID = 'worksheet';
 type Dragged =
   { kind: 'type'; blockType: string } | { kind: 'block'; id: string };
 
-/** Draggable data that marks an existing Block (as opposed to a Block Type). */
-export const blockDragData = (id: string) => ({ blockId: id });
+type BlockDragData = { blockId: string };
 
-const draggedFrom = (active: DragStartEvent['active']): Dragged => {
-  const blockId = (active.data.current as { blockId?: string } | undefined)
-    ?.blockId;
+/** `useDraggable` arguments for an existing Block, as opposed to a Block Type from the Palette. */
+export const blockDraggable = (blockId: string) => ({
+  id: `block:${blockId}`,
+  data: { blockId } satisfies BlockDragData,
+});
+
+const draggedFrom = ({ id, data }: DragStartEvent['active']): Dragged => {
+  const blockId = (data.current as Partial<BlockDragData> | undefined)?.blockId;
   return blockId === undefined
-    ? { kind: 'type', blockType: String(active.id) }
+    ? { kind: 'type', blockType: String(id) }
     : { kind: 'block', id: blockId };
 };
 
