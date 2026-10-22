@@ -1,0 +1,130 @@
+name: Release build
+
+# Builds installers for every platform on each push to main. Files are named
+# after the version tag (vX.Y.Z) when the commit carries one, else after the
+# short commit SHA. Pushing the tag later re-runs the build under the version name.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      label: ${{ steps.name.outputs.label }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Resolve release name
+        id: name
+        run: |
+          tag=$(git tag --points-at "$GITHUB_SHA" --list 'v*' | sort -V | tail -n 1)
+          echo "label=${tag:-${GITHUB_SHA::7}}" >> "$GITHUB_OUTPUT"
+
+      - name: Check versions match the tag
+        if: startsWith(steps.name.outputs.label, 'v')
+        run: |
+          expected="${{ steps.name.outputs.label }}"
+          expected="${expected#v}"
+          versions=(
+            "package.json=$(node -p "require('./package.json').version")"
+            "tauri.conf.json=$(node -p "require('./src-tauri/tauri.conf.json').version")"
+            "Cargo.toml=$(sed -n '/^\[package\]/,/^\[/{s/^version *= *"\(.*\)"/\1/p}' src-tauri/Cargo.toml | head -n 1)"
+          )
+          status=0
+          for entry in "${versions[@]}"; do
+            if [ "${entry#*=}" != "$expected" ]; then
+              echo "::error::${entry%%=*} is ${entry#*=}, tag says $expected"
+              status=1
+            fi
+          done
+          exit $status
+
+  build:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: linux
+            args: ''
+          - os: macos-latest
+            platform: macos
+            args: '--target universal-apple-darwin'
+          - os: windows-latest
+            platform: windows
+            args: ''
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm tauri build ${{ matrix.args }}
+
+      - name: Collect installers
+        shell: bash
+        run: |
+          mkdir -p dist-release
+          find src-tauri/target -path '*/release/bundle/*' -type f \
+            \( -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' \
+            -o -name '*.dmg' -o -name '*.msi' -o -name '*-setup.exe' \) |
+          while read -r f; do
+            cp "$f" "dist-release/${{ needs.prepare.outputs.label }}-$(basename "$f")"
+          done
+          ls -l dist-release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: teaching-paper-${{ needs.prepare.outputs.label }}-${{ matrix.platform }}
+          path: dist-release/*
+          if-no-files-found: error
+
+  release:
+    needs: [prepare, build]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: teaching-paper-*
+          path: installers
+          merge-multiple: true
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" installers/* \
+            --repo "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes --draft \
+            || gh release upload "$TAG" installers/* --repo "$GITHUB_REPOSITORY" --clobber

@@ -24,7 +24,7 @@
 - Work in short-lived branches off `main`, merged via PR (squash): `feat/<name>`, `fix/<name>`, `docs/<name>`, `chore/<name>`
 - Commits follow Conventional Commits (`feat(app): ...`)
 - Versioning: SemVer; keep version in sync in `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`
-- Release: bump version + changelog via PR, then tag the merge commit on `main` as `vX.Y.Z`; the tag push triggers the release build
+- Release: bump version + changelog via PR, then tag the merge commit on `main` as `vX.Y.Z`. `release.yml` builds Linux/macOS/Windows installers on every push to `main` (named by short SHA) and again on the tag push (named by `vX.Y.Z`); they are workflow artifacts
 - Only release commits are tagged, not every commit on `main`
 
 ## Agent skills
