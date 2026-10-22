@@ -5,6 +5,7 @@ import { PropertiesPanel } from './components/PropertiesPanel';
 import { WorksheetDnd } from './components/WorksheetDnd';
 import { Worksheet } from './components/Worksheet';
 import { WorksheetProvider } from './worksheet/context';
+import './fonts.css';
 import './App.css';
 
 function App() {
