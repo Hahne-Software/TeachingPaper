@@ -1,12 +1,15 @@
 name: Release build
 
-# Builds installers for every platform on each push to main. Files are named
-# after the version tag (vX.Y.Z) when the commit carries one, else after the
-# short commit SHA. Pushing the tag later re-runs the build under the version name.
+# Builds installers for every platform on version tags (vX.Y.Z, plus a draft
+# GitHub Release), nightly when main has new commits, and on demand. Files are
+# named after the version tag when the commit carries one, else after the short
+# commit SHA.
 on:
   push:
-    branches: [main]
     tags: ['v*']
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
 
 concurrency:
   group: release-${{ github.ref }}
@@ -17,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       label: ${{ steps.name.outputs.label }}
+      skip: ${{ steps.nightly.outputs.skip }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,12 +33,23 @@ jobs:
           tag=$(git tag --points-at "$GITHUB_SHA" --list 'v*' | sort -V | tail -n 1)
           echo "label=${tag:-${GITHUB_SHA::7}}" >> "$GITHUB_OUTPUT"
 
+      - name: Skip nightly without new commits
+        id: nightly
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          last=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release.yml \
+            --event schedule --status success --limit 1 --json headSha --jq '.[0].headSha')
+          if [ "$last" = "$GITHUB_SHA" ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; fi
+
       - name: Check versions match the tag
         if: startsWith(steps.name.outputs.label, 'v')
         run: node scripts/version.mjs check "${{ steps.name.outputs.label }}"
 
   build:
     needs: prepare
+    if: needs.prepare.outputs.skip != 'true'
     strategy:
       fail-fast: false
       matrix:
