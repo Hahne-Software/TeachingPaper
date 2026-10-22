@@ -4,6 +4,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type Dispatch,
   type ReactNode,
 } from 'react';
 import {
@@ -19,7 +20,7 @@ import {
 import { blockTypes } from '../blocks/registry';
 import { dropIndex } from '../worksheet/drop-index';
 import { useWorksheet } from '../worksheet/context';
-import type { Block } from '../worksheet/reducer';
+import type { Block, WorksheetAction } from '../worksheet/reducer';
 
 export const WORKSHEET_DROPPABLE_ID = 'worksheet';
 
@@ -36,6 +37,31 @@ const draggedFrom = (active: DragStartEvent['active']): Dragged => {
   return blockId === undefined
     ? { kind: 'type', blockType: String(active.id) }
     : { kind: 'block', id: blockId };
+};
+
+/** Block Type whose icon and label the drag preview shows. */
+const previewTypeOf = (item: Dragged, blocks: Block[]) =>
+  item.kind === 'type'
+    ? item.blockType
+    : blocks.find((b) => b.id === item.id)?.type;
+
+/** Applies a drop at `index` of the flat Block list. */
+const applyDrop = (
+  item: Dragged,
+  index: number,
+  dispatch: Dispatch<WorksheetAction>,
+) => {
+  if (item.kind === 'block') {
+    dispatch({ type: 'move', id: item.id, index });
+    return;
+  }
+  // The new Block focuses itself on mount. Inside the pointer release, WebKit then
+  // clears the caret, so Blocks inserted there can't be typed into; wait two frames.
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() =>
+      dispatch({ type: 'insert', blockType: item.blockType, index }),
+    ),
+  );
 };
 
 const InsertionIndexContext = createContext<number | null>(null);
@@ -84,12 +110,7 @@ export function WorksheetDnd({ children }: { children: ReactNode }) {
     setIndex(null);
   };
 
-  const previewType =
-    dragged?.kind === 'type'
-      ? dragged.blockType
-      : dragged?.kind === 'block'
-        ? state.blocks.find((b) => b.id === dragged.id)?.type
-        : undefined;
+  const previewType = dragged && previewTypeOf(dragged, state.blocks);
 
   return (
     <DndContext
@@ -108,22 +129,7 @@ export function WorksheetDnd({ children }: { children: ReactNode }) {
       }}
       onDragEnd={(event) => {
         const at = currentDropIndex(event, pointerY.current, state.blocks);
-        if (at !== null) {
-          const item = draggedFrom(event.active);
-          if (item.kind === 'block') {
-            dispatch({ type: 'move', id: item.id, index: at });
-            end();
-            return;
-          }
-          const { blockType } = item;
-          // The new Block focuses itself on mount. Inside the pointer release, WebKit then
-          // clears the caret, so Blocks inserted there can't be typed into; wait two frames.
-          requestAnimationFrame(() =>
-            requestAnimationFrame(() =>
-              dispatch({ type: 'insert', blockType, index: at }),
-            ),
-          );
-        }
+        if (at !== null) applyDrop(draggedFrom(event.active), at, dispatch);
         end();
       }}
       onDragCancel={end}

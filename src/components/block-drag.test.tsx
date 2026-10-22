@@ -1,13 +1,8 @@
 // @vitest-environment jsdom
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterDrag, dragFrom, drop, stubLayout } from '../test/dnd';
 import { WorksheetProvider } from '../worksheet/context';
 import { BlockPalette } from './BlockPalette';
 import { Worksheet } from './Worksheet';
@@ -31,53 +26,6 @@ const order = () =>
 const grip = (index: number) =>
   blocks()[index].querySelector<HTMLElement>('[aria-label="Drag Block"]')!;
 
-/** jsdom has no layout: Blocks are 100px tall, stacked; the Worksheet area is 0-1000px. */
-function stubLayout() {
-  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(
-    function (this: Element) {
-      const rect = (top: number, height: number, left = 300, width = 600) =>
-        ({
-          top,
-          bottom: top + height,
-          height,
-          left,
-          right: left + width,
-          width,
-          x: left,
-          y: top,
-          toJSON: () => ({}),
-        }) as DOMRect;
-      if (this.classList.contains('block')) {
-        return rect(blocks().indexOf(this) * 100, 100);
-      }
-      if (this.classList.contains('document-area'))
-        return rect(0, 1000, 200, 800);
-      if (this.classList.contains('page-stack')) return rect(0, 1000, 300, 600);
-      if (this.classList.contains('block-grip')) return rect(0, 28, 270, 28);
-      return rect(0, 0, 0, 0);
-    },
-  );
-}
-
-const pointer = (clientX: number, clientY: number) => ({
-  clientX,
-  clientY,
-  button: 0,
-  isPrimary: true,
-  pointerId: 1,
-});
-
-const dragFrom = async (source: HTMLElement, to: { x: number; y: number }) => {
-  fireEvent.pointerDown(source, pointer(280, 10));
-  for (const offset of [0, 1, 2]) {
-    fireEvent.pointerMove(document, pointer(to.x, to.y + offset));
-    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
-  }
-};
-
-const drop = (at: { x: number; y: number }) =>
-  fireEvent.pointerUp(document, pointer(at.x, at.y));
-
 async function seedHeadingThenBody() {
   await userEvent.click(screen.getByRole('button', { name: 'Heading' }));
   await userEvent.click(screen.getByRole('button', { name: 'Body Text' }));
@@ -85,10 +33,7 @@ async function seedHeadingThenBody() {
 
 describe('reordering Blocks by dragging their grip', () => {
   beforeEach(stubLayout);
-  afterEach(async () => {
-    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
-    vi.restoreAllMocks();
-  });
+  afterEach(afterDrag);
 
   it('shows a drag grip on every Block handle', async () => {
     setup();
