@@ -6,7 +6,7 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { useDroppable } from '@dnd-kit/core';
+import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { blockTypes } from '../blocks/registry';
 import type { BlockTypeDefinition } from '../blocks/types';
 import { useWorksheet } from '../worksheet/context';
@@ -24,7 +24,11 @@ import {
   PAGE_WIDTH,
 } from '../worksheet/page-format';
 import type { Block } from '../worksheet/reducer';
-import { WORKSHEET_DROPPABLE_ID, useInsertionIndex } from './WorksheetDnd';
+import {
+  WORKSHEET_DROPPABLE_ID,
+  blockDragData,
+  useInsertionIndex,
+} from './WorksheetDnd';
 
 /** Fallback until a Block has been measured. */
 const UNMEASURED_HEIGHT = 0;
@@ -178,12 +182,19 @@ function BlockHost({
   }, [element, block.id, onHeight]);
   const { View } = definition;
   const select = () => dispatch({ type: 'select', id: block.id });
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setGripRef,
+    isDragging,
+  } = useDraggable({ id: `block:${block.id}`, data: blockDragData(block.id) });
   return (
     <div
       className={
         'block' +
         (selected ? ' block-selected' : '') +
-        (oversized ? ' block-oversized' : '')
+        (oversized ? ' block-oversized' : '') +
+        (isDragging ? ' block-dragging' : '')
       }
       data-block-id={block.id}
       data-page={placement?.page}
@@ -196,6 +207,30 @@ function BlockHost({
       onFocus={select}
     >
       <div className="block-handle">
+        <button
+          type="button"
+          className="block-grip"
+          aria-label="Drag Block"
+          ref={setGripRef}
+          onClick={(event) => event.stopPropagation()}
+          {...attributes}
+          {...listeners}
+        >
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 16 16"
+            width="14"
+            height="14"
+            fill="currentColor"
+          >
+            <circle cx="6" cy="3.5" r="1.2" />
+            <circle cx="10" cy="3.5" r="1.2" />
+            <circle cx="6" cy="8" r="1.2" />
+            <circle cx="10" cy="8" r="1.2" />
+            <circle cx="6" cy="12.5" r="1.2" />
+            <circle cx="10" cy="12.5" r="1.2" />
+          </svg>
+        </button>
         <button
           type="button"
           className="block-delete"

@@ -14,6 +14,7 @@ import {
   useSensor,
   useSensors,
   type DragMoveEvent,
+  type DragStartEvent,
 } from '@dnd-kit/core';
 import { blockTypes } from '../blocks/registry';
 import { dropIndex } from '../worksheet/drop-index';
@@ -21,6 +22,21 @@ import { useWorksheet } from '../worksheet/context';
 import type { Block } from '../worksheet/reducer';
 
 export const WORKSHEET_DROPPABLE_ID = 'worksheet';
+
+/** What the pointer is carrying: a new Block Type from the Block Palette or an existing Block. */
+type Dragged =
+  { kind: 'type'; blockType: string } | { kind: 'block'; id: string };
+
+/** Draggable data that marks an existing Block (as opposed to a Block Type). */
+export const blockDragData = (id: string) => ({ blockId: id });
+
+const draggedFrom = (active: DragStartEvent['active']): Dragged => {
+  const blockId = (active.data.current as { blockId?: string } | undefined)
+    ?.blockId;
+  return blockId === undefined
+    ? { kind: 'type', blockType: String(active.id) }
+    : { kind: 'block', id: blockId };
+};
 
 const InsertionIndexContext = createContext<number | null>(null);
 
@@ -47,7 +63,7 @@ const currentDropIndex = (
 
 export function WorksheetDnd({ children }: { children: ReactNode }) {
   const { state, dispatch } = useWorksheet();
-  const [activeType, setActiveType] = useState<string | null>(null);
+  const [dragged, setDragged] = useState<Dragged | null>(null);
   const [index, setIndex] = useState<number | null>(null);
   // dnd-kit's drag delta includes scrolling, so track the pointer's viewport position itself.
   const pointerY = useRef<number | null>(null);
@@ -64,9 +80,16 @@ export function WorksheetDnd({ children }: { children: ReactNode }) {
   );
 
   const end = () => {
-    setActiveType(null);
+    setDragged(null);
     setIndex(null);
   };
+
+  const previewType =
+    dragged?.kind === 'type'
+      ? dragged.blockType
+      : dragged?.kind === 'block'
+        ? state.blocks.find((b) => b.id === dragged.id)?.type
+        : undefined;
 
   return (
     <DndContext
@@ -75,7 +98,7 @@ export function WorksheetDnd({ children }: { children: ReactNode }) {
       onDragStart={(event) => {
         const origin = event.activatorEvent as Partial<PointerEvent>;
         pointerY.current = origin.clientY ?? null;
-        setActiveType(String(event.active.id));
+        setDragged(draggedFrom(event.active));
       }}
       onDragMove={(event) =>
         setIndex(currentDropIndex(event, pointerY.current, state.blocks))
@@ -86,7 +109,13 @@ export function WorksheetDnd({ children }: { children: ReactNode }) {
       onDragEnd={(event) => {
         const at = currentDropIndex(event, pointerY.current, state.blocks);
         if (at !== null) {
-          const blockType = String(event.active.id);
+          const item = draggedFrom(event.active);
+          if (item.kind === 'block') {
+            dispatch({ type: 'move', id: item.id, index: at });
+            end();
+            return;
+          }
+          const { blockType } = item;
           // The new Block focuses itself on mount. Inside the pointer release, WebKit then
           // clears the caret, so Blocks inserted there can't be typed into; wait two frames.
           requestAnimationFrame(() =>
@@ -103,10 +132,10 @@ export function WorksheetDnd({ children }: { children: ReactNode }) {
         {children}
       </InsertionIndexContext.Provider>
       <DragOverlay dropAnimation={null}>
-        {activeType && blockTypes[activeType] ? (
+        {previewType && blockTypes[previewType] ? (
           <div className="palette-entry palette-drag-preview">
-            <span className="palette-icon">{blockTypes[activeType].icon}</span>
-            {blockTypes[activeType].label}
+            <span className="palette-icon">{blockTypes[previewType].icon}</span>
+            {blockTypes[previewType].label}
           </div>
         ) : null}
       </DragOverlay>
