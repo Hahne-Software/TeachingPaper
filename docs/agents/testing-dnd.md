@@ -7,3 +7,4 @@ Drive drags with `fireEvent.pointerDown` on the draggable and `fireEvent.pointer
 - dnd-kit swallows the first click after a drag until its cleanup timer runs; wait 50 ms in `afterEach`.
 - Inspect values by throwing an `Error` with the value in the test. The RTK hook filters `console.log` output.
 - jsdom cannot show scrolling mid-drag or focus and caret behaviour: verify those per `browser-verification.md`.
+- The Block inserted last is selected and keeps the focus (`autoFocus`): clicking another Block's text does not select it in jsdom. Drag the last Block, or assert selection through a Block you inserted last.

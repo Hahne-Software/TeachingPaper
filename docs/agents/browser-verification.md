@@ -8,7 +8,7 @@ A UI change counts as verified only after you have read, with the Read tool, a W
 
 ## WebKitGTK (the Tauri engine)
 
-Run `pnpm verify:ui <steps-file.mjs> <out-dir>`. It starts `pnpm dev` when port 1420 is free, stops it afterwards, and strips the Nix `LD_*` variables. The steps file (written in the scratchpad) gets `click`, `key`, `exec`, `shot` and `sleep`; the header of the script has the details. `click` hits the first match only, so reach any other element with `exec` (`document.querySelectorAll(sel)[1].click()`).
+Run `pnpm verify:ui <steps-file.mjs> <out-dir>`. It starts `pnpm dev` when port 1420 is free, stops it afterwards, and strips the Nix `LD_*` variables. The steps file (written in the scratchpad) gets `click`, `key`, `drag`, `drop`, `exec`, `shot` and `sleep`; the header of the script has the details. `click` hits the first match only, so reach any other element with `exec` (`document.querySelectorAll(sel)[1].click()`). `drag(from, to, { hover, release })` moves the real mouse; pass `release: false`, take a `shot` of the drag in progress, then `drop()`.
 
 ## Firefox (no browser tool connected)
 

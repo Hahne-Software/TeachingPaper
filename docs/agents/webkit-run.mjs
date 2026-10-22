@@ -1,7 +1,7 @@
 // Drives the app in WebKitGTK (the Tauri engine) through WebKitWebDriver. No dependencies.
 // Usage: pnpm verify:ui <steps-file.mjs> <out-dir>
 // Starts `pnpm dev` when :1420 is free and stops it afterwards; a server that was already running stays up.
-// The steps file default-exports `async ({ exec, key, click, shot, sleep }) => {}`.
+// The steps file default-exports `async ({ exec, key, click, drag, drop, shot, sleep }) => {}`.
 // `click` hits the first match only; reach any other element with `exec` (e.g. `document.querySelectorAll(sel)[1].click()`).
 import { spawn } from 'node:child_process';
 import { execFileSync } from 'node:child_process';
@@ -108,6 +108,74 @@ try {
       });
       await call('POST', `${sp}/element/${Object.values(found)[0]}/click`, {});
     },
+    /**
+     * Real mouse drag from the center of `from` to `to` (a selector, or viewport `{x, y}`), in small steps.
+     * `hover` is a selector to point at first, for controls that only show on hover. Pass `release: false`
+     * to stop before the drop, e.g. to take a screenshot of the drag in progress, then call `drop()`.
+     */
+    drag: async (from, to, { hover, release = true } = {}) => {
+      const center = (selector) =>
+        helpers.exec(
+          `const r = document.querySelector(arguments[0]).getBoundingClientRect();
+           return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };`,
+          [selector],
+        );
+      const move = (x, y) => ({
+        type: 'pointerMove',
+        duration: 50,
+        origin: 'viewport',
+        x,
+        y,
+      });
+      if (hover) {
+        const over = await center(hover);
+        await call('POST', `${sp}/actions`, {
+          actions: [
+            {
+              type: 'pointer',
+              id: 'm',
+              parameters: { pointerType: 'mouse' },
+              actions: [move(over.x, over.y)],
+            },
+          ],
+        });
+      }
+      const start = await center(from);
+      const end = typeof to === 'string' ? await center(to) : to;
+      const steps = Array.from({ length: 10 }, (_, i) =>
+        move(
+          Math.round(start.x + ((end.x - start.x) * (i + 1)) / 10),
+          Math.round(start.y + ((end.y - start.y) * (i + 1)) / 10),
+        ),
+      );
+      await call('POST', `${sp}/actions`, {
+        actions: [
+          {
+            type: 'pointer',
+            id: 'm',
+            parameters: { pointerType: 'mouse' },
+            actions: [
+              move(start.x, start.y),
+              { type: 'pointerDown', button: 0 },
+              ...steps,
+              ...(release ? [{ type: 'pointerUp', button: 0 }] : []),
+            ],
+          },
+        ],
+      });
+    },
+    /** Releases the mouse button after `drag(..., { release: false })`. */
+    drop: () =>
+      call('POST', `${sp}/actions`, {
+        actions: [
+          {
+            type: 'pointer',
+            id: 'm',
+            parameters: { pointerType: 'mouse' },
+            actions: [{ type: 'pointerUp', button: 0 }],
+          },
+        ],
+      }),
     /** Saves a screenshot to <out-dir>/<name>.png; read it with the Read tool. */
     shot: async (name) => {
       const png = await call('GET', `${sp}/screenshot`);
