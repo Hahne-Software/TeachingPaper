@@ -4,6 +4,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type Dispatch,
   type ReactNode,
 } from 'react';
 import {
@@ -14,13 +15,58 @@ import {
   useSensor,
   useSensors,
   type DragMoveEvent,
+  type DragStartEvent,
 } from '@dnd-kit/core';
 import { blockTypes } from '../blocks/registry';
 import { dropIndex } from '../worksheet/drop-index';
 import { useWorksheet } from '../worksheet/context';
-import type { Block } from '../worksheet/reducer';
+import type { Block, WorksheetAction } from '../worksheet/reducer';
 
 export const WORKSHEET_DROPPABLE_ID = 'worksheet';
+
+/** What the pointer is carrying: a new Block Type from the Block Palette or an existing Block. */
+type Dragged =
+  { kind: 'type'; blockType: string } | { kind: 'block'; id: string };
+
+type BlockDragData = { blockId: string };
+
+/** `useDraggable` arguments for an existing Block, as opposed to a Block Type from the Palette. */
+export const blockDraggable = (blockId: string) => ({
+  id: `block:${blockId}`,
+  data: { blockId } satisfies BlockDragData,
+});
+
+const draggedFrom = ({ id, data }: DragStartEvent['active']): Dragged => {
+  const blockId = (data.current as Partial<BlockDragData> | undefined)?.blockId;
+  return blockId === undefined
+    ? { kind: 'type', blockType: String(id) }
+    : { kind: 'block', id: blockId };
+};
+
+/** Block Type whose icon and label the drag preview shows. */
+const previewTypeOf = (item: Dragged, blocks: Block[]) =>
+  item.kind === 'type'
+    ? item.blockType
+    : blocks.find((b) => b.id === item.id)?.type;
+
+/** Applies a drop at `index` of the flat Block list. */
+const applyDrop = (
+  item: Dragged,
+  index: number,
+  dispatch: Dispatch<WorksheetAction>,
+) => {
+  if (item.kind === 'block') {
+    dispatch({ type: 'move', id: item.id, index });
+    return;
+  }
+  // The new Block focuses itself on mount. Inside the pointer release, WebKit then
+  // clears the caret, so Blocks inserted there can't be typed into; wait two frames.
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() =>
+      dispatch({ type: 'insert', blockType: item.blockType, index }),
+    ),
+  );
+};
 
 const InsertionIndexContext = createContext<number | null>(null);
 
@@ -47,7 +93,7 @@ const currentDropIndex = (
 
 export function WorksheetDnd({ children }: { children: ReactNode }) {
   const { state, dispatch } = useWorksheet();
-  const [activeType, setActiveType] = useState<string | null>(null);
+  const [dragged, setDragged] = useState<Dragged | null>(null);
   const [index, setIndex] = useState<number | null>(null);
   // dnd-kit's drag delta includes scrolling, so track the pointer's viewport position itself.
   const pointerY = useRef<number | null>(null);
@@ -64,9 +110,11 @@ export function WorksheetDnd({ children }: { children: ReactNode }) {
   );
 
   const end = () => {
-    setActiveType(null);
+    setDragged(null);
     setIndex(null);
   };
+
+  const previewType = dragged && previewTypeOf(dragged, state.blocks);
 
   return (
     <DndContext
@@ -75,7 +123,7 @@ export function WorksheetDnd({ children }: { children: ReactNode }) {
       onDragStart={(event) => {
         const origin = event.activatorEvent as Partial<PointerEvent>;
         pointerY.current = origin.clientY ?? null;
-        setActiveType(String(event.active.id));
+        setDragged(draggedFrom(event.active));
       }}
       onDragMove={(event) =>
         setIndex(currentDropIndex(event, pointerY.current, state.blocks))
@@ -85,16 +133,7 @@ export function WorksheetDnd({ children }: { children: ReactNode }) {
       }}
       onDragEnd={(event) => {
         const at = currentDropIndex(event, pointerY.current, state.blocks);
-        if (at !== null) {
-          const blockType = String(event.active.id);
-          // The new Block focuses itself on mount. Inside the pointer release, WebKit then
-          // clears the caret, so Blocks inserted there can't be typed into; wait two frames.
-          requestAnimationFrame(() =>
-            requestAnimationFrame(() =>
-              dispatch({ type: 'insert', blockType, index: at }),
-            ),
-          );
-        }
+        if (at !== null) applyDrop(draggedFrom(event.active), at, dispatch);
         end();
       }}
       onDragCancel={end}
@@ -103,10 +142,10 @@ export function WorksheetDnd({ children }: { children: ReactNode }) {
         {children}
       </InsertionIndexContext.Provider>
       <DragOverlay dropAnimation={null}>
-        {activeType && blockTypes[activeType] ? (
+        {previewType && blockTypes[previewType] ? (
           <div className="palette-entry palette-drag-preview">
-            <span className="palette-icon">{blockTypes[activeType].icon}</span>
-            {blockTypes[activeType].label}
+            <span className="palette-icon">{blockTypes[previewType].icon}</span>
+            {blockTypes[previewType].label}
           </div>
         ) : null}
       </DragOverlay>

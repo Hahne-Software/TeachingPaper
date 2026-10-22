@@ -14,6 +14,8 @@ export type WorksheetAction =
   | { type: 'insert'; blockType: string; index?: number }
   | { type: 'update'; id: string; data: unknown }
   | { type: 'remove'; id: string }
+  /** `index` is a drop position in the list as it is before the move. */
+  | { type: 'move'; id: string; index: number }
   | { type: 'select'; id: string }
   | { type: 'deselect' };
 
@@ -66,6 +68,18 @@ export const createWorksheetReducer =
                 state.selectedId === action.id ? null : state.selectedId,
             }
           : state;
+      case 'move': {
+        const from = state.blocks.findIndex((b) => b.id === action.id);
+        if (from === -1) return state;
+        const target = Math.min(Math.max(action.index, 0), state.blocks.length);
+        const to = target > from ? target - 1 : target;
+        if (to === from) return state;
+        const rest = state.blocks.filter((b) => b.id !== action.id);
+        return {
+          ...state,
+          blocks: [...rest.slice(0, to), state.blocks[from], ...rest.slice(to)],
+        };
+      }
       case 'select':
         return state.blocks.some((b) => b.id === action.id)
           ? { ...state, selectedId: action.id }

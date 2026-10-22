@@ -191,6 +191,7 @@ body,
   display: flex;
 }
 
+.block-grip,
 .block-delete {
   display: flex;
   align-items: center;
@@ -203,6 +204,21 @@ body,
   border: none;
   border-radius: 6px;
   cursor: pointer;
+}
+
+.block-grip {
+  cursor: grab;
+  touch-action: none;
+}
+
+.block-grip:hover,
+.block-grip:focus-visible {
+  color: #0f0f0f;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.block-dragging {
+  opacity: 0.4;
 }
 
 .block-delete:hover,

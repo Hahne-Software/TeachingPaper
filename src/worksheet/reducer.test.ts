@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { createWorksheetReducer, initialState } from './reducer';
+import {
+  createWorksheetReducer,
+  initialState,
+  type WorksheetState,
+} from './reducer';
 
 const worksheetReducer = createWorksheetReducer({
   heading: () => ({ text: '', level: 1 }),
@@ -202,5 +206,78 @@ describe('worksheetReducer remove', () => {
     const state = twoBlocks();
 
     expect(worksheetReducer(state, { type: 'remove', id: 'nope' })).toBe(state);
+  });
+});
+
+describe('worksheetReducer move', () => {
+  const threeBlocks = () =>
+    Array.from({ length: 3 }).reduce<WorksheetState>(
+      (state) =>
+        worksheetReducer(state, { type: 'insert', blockType: 'heading' }),
+      initialState,
+    );
+  const ids = (state: WorksheetState) => state.blocks.map((b) => b.id);
+
+  it('moves a Block to the first position', () => {
+    const state = threeBlocks();
+    const [a, b, c] = ids(state);
+    const next = worksheetReducer(state, { type: 'move', id: c, index: 0 });
+    expect(ids(next)).toEqual([c, a, b]);
+  });
+
+  it('moves a Block to a middle position', () => {
+    const state = threeBlocks();
+    const [a, b, c] = ids(state);
+    const next = worksheetReducer(state, { type: 'move', id: a, index: 2 });
+    expect(ids(next)).toEqual([b, a, c]);
+  });
+
+  it('moves a Block to the last position', () => {
+    const state = threeBlocks();
+    const [a, b, c] = ids(state);
+    const next = worksheetReducer(state, { type: 'move', id: a, index: 3 });
+    expect(ids(next)).toEqual([b, c, a]);
+  });
+
+  it('leaves the order unchanged when moved to its own position', () => {
+    const state = threeBlocks();
+    const [, b] = ids(state);
+    for (const index of [1, 2]) {
+      const next = worksheetReducer(state, { type: 'move', id: b, index });
+      expect(ids(next)).toEqual(ids(state));
+    }
+  });
+
+  it('leaves the state unchanged for an unknown id', () => {
+    const state = threeBlocks();
+    expect(
+      worksheetReducer(state, { type: 'move', id: 'nope', index: 0 }),
+    ).toBe(state);
+  });
+
+  it('keeps the moved Block selected', () => {
+    const state = worksheetReducer(threeBlocks(), {
+      type: 'select',
+      id: 'block-1',
+    });
+    const next = worksheetReducer(state, {
+      type: 'move',
+      id: 'block-1',
+      index: 3,
+    });
+    expect(next.selectedId).toBe('block-1');
+  });
+
+  it('keeps another selection when a different Block is moved', () => {
+    const state = worksheetReducer(threeBlocks(), {
+      type: 'select',
+      id: 'block-2',
+    });
+    const next = worksheetReducer(state, {
+      type: 'move',
+      id: 'block-1',
+      index: 3,
+    });
+    expect(next.selectedId).toBe('block-2');
   });
 });
