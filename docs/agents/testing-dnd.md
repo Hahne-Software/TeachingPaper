@@ -1,6 +1,6 @@
 # Testing dnd-kit drags in jsdom
 
-Drive drags with `fireEvent.pointerDown` on the draggable and `fireEvent.pointerMove` / `pointerUp` on `document`. jsdom has no layout, so stub `Element.prototype.getBoundingClientRect` per class (see `src/components/palette-drag.test.tsx`).
+Drive drags with `fireEvent.pointerDown` on the draggable and `fireEvent.pointerMove` / `pointerUp` on `document`. jsdom has no layout, so use `stubLayout`, `dragFrom`, `drop` and `afterDrag` from `src/test/dnd.ts` (see `src/components/palette-drag.test.tsx`); extend `stubLayout` for new classes.
 
 - The first pointer move past the activation distance only starts the drag; `onDragMove` fires from the next move. Send at least two moves, with `await act(() => new Promise((r) => setTimeout(r, 50)))` between them, because dnd-kit measures drop targets after the drag starts.
 - Finish every drag (`pointerUp` or Escape). An unfinished drag leaks into the next test.
