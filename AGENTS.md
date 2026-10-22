@@ -23,6 +23,7 @@
 - Trunk-based: `main` is always working and protected (PR + green CI required)
 - Work in short-lived branches off `main`, merged via PR (squash): `feat/<name>`, `fix/<name>`, `docs/<name>`, `chore/<name>`
 - Commits follow Conventional Commits (`feat(app): ...`)
+- PR titles are Conventional Commits too (checked by `pr-title.yml`): the type becomes a label that sorts the PR into the release notes; scope `dev` (developer tooling) is left out of them
 - Versioning: SemVer; keep version in sync in `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`
 - Release: bump version + changelog via PR, then tag the merge commit on `main` as `vX.Y.Z`. `release.yml` builds Linux/macOS/Windows installers on every push to `main` (named by short SHA) and again on the tag push (named by `vX.Y.Z`); they are workflow artifacts
 - Only release commits are tagged, not every commit on `main`
