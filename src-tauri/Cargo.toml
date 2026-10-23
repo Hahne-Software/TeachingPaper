@@ -1,8 +1,10 @@
 [package]
 name = "teaching-paper"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "Desktop app for creating teaching material"
+authors = ["Hahne-Software"]
+license = "EUPL-1.2"
+repository = "https://github.com/Hahne-Software/TeachingPaper"
 edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
