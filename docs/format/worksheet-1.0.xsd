@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  XML Schema for worksheet.xml, TeachingPaper Worksheet format, Format Version 1.0.
+  Normative specification: worksheet-format.md (same directory).
+
+  Copyright (c) 2026 Hahne-Software.
+  Licensed under the Creative Commons Attribution 4.0 International License (CC BY 4.0),
+  https://creativecommons.org/licenses/by/4.0/
+
+  The schema covers the structure of worksheet.xml. Rules it cannot express (for example
+  that text inside <p> contains no raw line breaks) are stated in the specification and
+  apply as well.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:ws="https://hahne.software/ns/teachingpaper/worksheet"
+           targetNamespace="https://hahne.software/ns/teachingpaper/worksheet"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified">
+
+  <xs:element name="worksheet">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="metadata" type="ws:Metadata" minOccurs="0"/>
+        <xs:element name="blocks" type="ws:Blocks"/>
+      </xs:sequence>
+      <xs:attribute name="version" type="xs:string" use="required" fixed="1.0"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Worksheet Metadata -->
+
+  <xs:simpleType name="SingleLineText">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[^\r\n]*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="Metadata">
+    <xs:all>
+      <xs:element name="title" type="ws:SingleLineText" minOccurs="0"/>
+      <xs:element name="grade" type="ws:SingleLineText" minOccurs="0"/>
+      <xs:element name="subject" type="ws:SingleLineText" minOccurs="0"/>
+      <xs:element name="topic" type="ws:SingleLineText" minOccurs="0"/>
+    </xs:all>
+  </xs:complexType>
+
+  <!-- Blocks -->
+
+  <xs:complexType name="Blocks">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="heading" type="ws:Heading"/>
+      <xs:element name="body-text" type="ws:BodyText"/>
+    </xs:choice>
+  </xs:complexType>
+
+  <xs:simpleType name="HeadingLevel">
+    <xs:restriction base="xs:integer">
+      <xs:minInclusive value="1"/>
+      <xs:maxInclusive value="3"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="Heading">
+    <xs:simpleContent>
+      <xs:extension base="ws:SingleLineText">
+        <xs:attribute name="level" type="ws:HeadingLevel" use="required"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+
+  <xs:complexType name="BodyText">
+    <xs:sequence>
+      <xs:element name="p" type="ws:Inline" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Inline content of a Body Text paragraph: text with formatting and line breaks. -->
+  <xs:complexType name="Inline" mixed="true">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="b" type="ws:Inline"/>
+      <xs:element name="i" type="ws:Inline"/>
+      <xs:element name="u" type="ws:Inline"/>
+      <xs:element name="br" type="ws:Empty"/>
+    </xs:choice>
+  </xs:complexType>
+
+  <xs:complexType name="Empty"/>
+
+</xs:schema>
