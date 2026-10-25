@@ -1,6 +1,6 @@
 # TeachingPaper Worksheet Format
 
-- **Format Version:** 1.0
+- **Format Version:** 1.0 (draft, see section 4.5)
 - **Namespace:** `https://hahne.software/ns/teachingpaper/worksheet`
 - **File extension:** `.tpsheet`
 - **Media type:** `application/vnd.teachingpaper.worksheet+zip`
@@ -167,8 +167,12 @@ A reader MUST reject a file as a whole, never load it partially or repair it, if
 
 Readers SHOULD tell the user why the file was rejected.
 
+### 4.5 Draft period
+
+Until TeachingPaper 1.0 is released, Format Version 1.0 is a **draft**: it may still change in any way, including incompatibly, without a new Format Version, and the rules of sections 4.1–4.3 do not yet apply to such changes. Worksheet Files written by pre-release versions of TeachingPaper may therefore not open in later versions. With the release of TeachingPaper 1.0, Format Version 1.0 is frozen; from then on, every change follows section 4.1.
+
 ## 5. Changelog
 
-### 1.0 (2026)
+### 1.0 (draft)
 
 First version: container with `mimetype`, `worksheet.xml` and reserved `media/`; Worksheet Metadata `title`, `grade`, `subject`, `topic`; Block Types `heading` and `body-text`.

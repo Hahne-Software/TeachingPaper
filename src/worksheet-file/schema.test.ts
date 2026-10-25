@@ -1,6 +1,8 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { validateXML } from 'xmllint-wasm';
 import schema from '../../docs/format/worksheet-1.0.xsd?raw';
+import { blockTypes } from '../blocks/registry';
 
 const examples = (pattern: Record<string, string>) =>
   Object.entries(pattern).map(([path, contents]) => ({
@@ -44,5 +46,23 @@ describe('worksheet-1.0.xsd', () => {
   it.each(invalid)('rejects invalid/$name', async ({ name, contents }) => {
     const result = await validate(name, contents);
     expect(result.valid).toBe(false);
+  });
+});
+
+/** Block element names the schema allows inside <blocks>. */
+const schemaBlockTypes = (xsd: string) =>
+  Array.from(
+    new DOMParser()
+      .parseFromString(xsd, 'application/xml')
+      .querySelectorAll('complexType[name="Blocks"] element'),
+    (element) => element.getAttribute('name'),
+  );
+
+describe('Block Types', () => {
+  // A new or renamed Block Type changes the file format: see docs/format/worksheet-format.md.
+  it('are exactly the Block Types of the schema', () => {
+    expect(Object.keys(blockTypes).sort()).toEqual(
+      schemaBlockTypes(schema).sort(),
+    );
   });
 });
