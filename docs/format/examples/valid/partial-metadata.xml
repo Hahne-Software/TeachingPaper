@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Metadata children are optional and may appear in any order. -->
+<worksheet xmlns="https://hahne.software/ns/teachingpaper/worksheet" version="1.0">
+  <metadata>
+    <topic>Fractions</topic>
+    <grade>5/6</grade>
+  </metadata>
+  <blocks>
+    <body-text>
+      <p><u><i><b>Nesting order is free when reading.</b></i></u></p>
+    </body-text>
+  </blocks>
+</worksheet>

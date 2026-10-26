@@ -22,6 +22,39 @@ _Avoid_: Element, component, widget
 The kind of a Block, which determines what content and settings the Block has.
 _Avoid_: Template
 
+### Worksheet Metadata
+
+**Worksheet Metadata**:
+Optional descriptive information about a Worksheet as a whole (Title, Grade Level, Subject, Topic); not printed as a Block.
+_Avoid_: Header, document properties
+
+**Title**:
+The name of a Worksheet as metadata, independent of any Heading on its Pages.
+
+**Grade Level**:
+The school year (or range of years) a Worksheet is meant for, as free text such as "7", "7/8" or "Q1".
+_Avoid_: Class (a specific group of students, such as 7b)
+
+**Subject**:
+The school subject a Worksheet belongs to, such as History.
+
+**Topic**:
+The teaching unit or theme within a Subject that a Worksheet covers, such as Ancient Rome.
+
+### File format
+
+**Worksheet File**:
+A Worksheet saved to disk as a `.tpsheet` file, in the open TeachingPaper Worksheet format.
+_Avoid_: Document, project file
+
+**Unsupported Block**:
+A Block from a newer Format Version that this app version does not fully understand; it is shown and kept unchanged, but can only be moved or deleted.
+_Avoid_: Unknown block, placeholder
+
+**Format Version**:
+The version of the Worksheet format (MAJOR.MINOR) a Worksheet File was written in, which determines the rules that apply to it; independent of the app version.
+_Avoid_: Schema version, file version
+
 ### Block Types
 
 **Heading**:

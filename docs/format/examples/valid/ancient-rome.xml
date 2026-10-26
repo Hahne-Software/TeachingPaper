@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<worksheet xmlns="https://hahne.software/ns/teachingpaper/worksheet" version="1.0">
+  <metadata>
+    <title>Daily life in Ancient Rome</title>
+    <grade>7</grade>
+    <subject>History</subject>
+    <topic>Ancient Rome</topic>
+  </metadata>
+  <blocks>
+    <heading level="1">Daily life in Ancient Rome</heading>
+    <body-text>
+      <p>Read the text and mark <b>all</b> <i>Latin</i> words.<br/>Then answer the questions.</p>
+      <p/>
+      <p>Plain, <b>bold, <i>bold and italic</i></b> and <u>underlined</u>.</p>
+    </body-text>
+    <heading level="2">Tasks</heading>
+    <heading level="3"></heading>
+  </blocks>
+</worksheet>
