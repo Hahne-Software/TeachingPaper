@@ -281,3 +281,29 @@ describe('worksheetReducer move', () => {
     expect(next.selectedId).toBe('block-2');
   });
 });
+
+describe('worksheetReducer replace', () => {
+  it('replaces all Blocks with freshly identified ones and clears the selection', () => {
+    let state = worksheetReducer(initialState, {
+      type: 'insert',
+      blockType: 'heading',
+    });
+    const oldId = state.blocks[0].id;
+
+    state = worksheetReducer(state, {
+      type: 'replace',
+      blocks: [
+        { type: 'heading', data: { text: 'A', level: 2 } },
+        { type: 'heading', data: { text: 'B', level: 3 } },
+      ],
+    });
+
+    expect(state.blocks.map(({ type, data }) => ({ type, data }))).toEqual([
+      { type: 'heading', data: { text: 'A', level: 2 } },
+      { type: 'heading', data: { text: 'B', level: 3 } },
+    ]);
+    expect(new Set(state.blocks.map((b) => b.id)).size).toBe(2);
+    expect(state.blocks.map((b) => b.id)).not.toContain(oldId);
+    expect(state.selectedId).toBeNull();
+  });
+});

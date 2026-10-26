@@ -16,6 +16,8 @@ export type WorksheetAction =
   | { type: 'remove'; id: string }
   /** `index` is a drop position in the list as it is before the move. */
   | { type: 'move'; id: string; index: number }
+  /** Replaces the whole Worksheet, e.g. after opening a Worksheet File. */
+  | { type: 'replace'; blocks: { type: string; data: unknown }[] }
   | { type: 'select'; id: string }
   | { type: 'deselect' };
 
@@ -80,6 +82,15 @@ export const createWorksheetReducer =
           blocks: [...rest.slice(0, to), state.blocks[from], ...rest.slice(to)],
         };
       }
+      case 'replace':
+        return {
+          blocks: action.blocks.map((block, i) => ({
+            ...block,
+            id: `block-${state.nextId + i}`,
+          })),
+          selectedId: null,
+          nextId: state.nextId + action.blocks.length,
+        };
       case 'select':
         return state.blocks.some((b) => b.id === action.id)
           ? { ...state, selectedId: action.id }
