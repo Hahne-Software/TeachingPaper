@@ -11,7 +11,7 @@
 - use `pnpm tauri dev` to run the app locally
 - `pnpm test` (Vitest), `pnpm typecheck` and `pnpm lint`; `pnpm format` fixes formatting. The pre-commit hook and CI run all of them.
 - UI changes: verify in the browser against `pnpm dev` (port 1420) before reporting done, and read a WebKitGTK screenshot of each changed state; the Tauri shell is not needed. Read `docs/agents/browser-verification.md` first.
-- Tiptap tests: read `docs/agents/testing-editors.md` first.
+- Editor tests (Tiptap Body Text, contenteditable Heading): read `docs/agents/testing-editors.md` first.
 - Drag-and-drop tests: read `docs/agents/testing-dnd.md` first.
 - Block Types or anything else saved in Worksheet Files: read `docs/format/worksheet-format.md` first; the spec, its XSD and examples change together with the code.
 
