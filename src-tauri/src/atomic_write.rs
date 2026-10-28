@@ -11,6 +11,14 @@ pub fn atomic_write(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     // It is removed on drop unless persisted, so a failed write leaves nothing behind.
     let mut temporary = tempfile::NamedTempFile::new_in(dir)?;
     temporary.write_all(bytes)?;
+    // A new temporary file is private (0600); a replaced file keeps the permissions it had.
+    if let Ok(existing) = std::fs::metadata(path)
+        && existing.is_file()
+    {
+        temporary
+            .as_file()
+            .set_permissions(existing.permissions())?;
+    }
     temporary.as_file().sync_all()?;
     temporary.persist(path).map_err(|error| error.error)?;
     Ok(())
@@ -76,6 +84,19 @@ mod tests {
         assert!(atomic_write(&target, b"new").is_err());
         assert_eq!(fs::read(target.join("keep.txt")).unwrap(), b"keep");
         assert_eq!(names(dir.path()), ["a.tpsheet"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn keeps_the_permissions_of_the_replaced_file() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("a.tpsheet");
+        fs::write(&target, b"old").unwrap();
+        fs::set_permissions(&target, fs::Permissions::from_mode(0o644)).unwrap();
+        atomic_write(&target, b"new").unwrap();
+        let mode = fs::metadata(&target).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o644);
     }
 
     #[test]
