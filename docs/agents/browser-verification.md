@@ -10,6 +10,8 @@ A UI change counts as verified only after you have read, with the Read tool, a W
 
 Run `pnpm verify:ui <steps-file.mjs> <out-dir>`. It starts `pnpm dev` when port 1420 is free, stops it afterwards, and strips the Nix `LD_*` variables. The steps file (written in the scratchpad) gets `click`, `key`, `drag`, `drop`, `exec`, `shot` and `sleep`; the header of the script has the details. `click` hits the first match only, so reach any other element with `exec` (`document.querySelectorAll(sel)[1].click()`). `drag(from, to, { hover, release })` moves the real mouse; pass `release: false`, take a `shot` of the drag in progress, then `drop()`.
 
+`exec` runs its text as a function body, so a result needs `return` (`exec('return document.title')`). `key` presses keys one after another and holds no modifier: trigger a shortcut by dispatching `new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true })` on `window` through `exec`. A native file picker or download cannot be driven; stub it in the page (replace `HTMLInputElement.prototype.click` to set `files` and fire `change`, `HTMLAnchorElement.prototype.click` to keep the blob) and assert on what the stub received.
+
 ## Firefox (no browser tool connected)
 
 1. Install `puppeteer-core` in the scratchpad directory, never in the repo (`PUPPETEER_SKIP_DOWNLOAD=1 npm i puppeteer-core`).
