@@ -24,6 +24,12 @@ pub fn atomic_write(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     Ok(())
 }
 
+/// Tauri command: whether something exists at `path`.
+#[tauri::command]
+pub fn file_exists(path: String) -> bool {
+    Path::new(&path).exists()
+}
+
 /// Tauri command: writes the bytes of the request body to the percent-encoded path in the `path` header.
 #[tauri::command]
 pub fn write_file_atomic(request: tauri::ipc::Request<'_>) -> Result<(), String> {
@@ -97,6 +103,15 @@ mod tests {
         atomic_write(&target, b"new").unwrap();
         let mode = fs::metadata(&target).unwrap().permissions().mode();
         assert_eq!(mode & 0o777, 0o644);
+    }
+
+    #[test]
+    fn reports_whether_a_file_exists() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("a.tpsheet");
+        assert!(!file_exists(target.to_str().unwrap().into()));
+        fs::write(&target, b"x").unwrap();
+        assert!(file_exists(target.to_str().unwrap().into()));
     }
 
     #[test]

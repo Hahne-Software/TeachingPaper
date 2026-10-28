@@ -9,7 +9,10 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .invoke_handler(tauri::generate_handler![atomic_write::write_file_atomic])
+        .invoke_handler(tauri::generate_handler![
+            atomic_write::write_file_atomic,
+            atomic_write::file_exists
+        ])
         .setup(|app| {
             let handle = app.handle();
 

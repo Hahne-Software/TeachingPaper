@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { open, save } from '@tauri-apps/plugin-dialog';
+import { confirm, open, save } from '@tauri-apps/plugin-dialog';
 import { readFile } from '@tauri-apps/plugin-fs';
 import type { FilePort, FileRef } from './port';
 
@@ -16,6 +16,13 @@ const withExtension = (path: string) =>
 
 const pathOf = (file: FileRef) => (file as TauriFileRef).path;
 
+const confirmReplace = async (path: string) =>
+  !(await invoke<boolean>('file_exists', { path })) ||
+  confirm(`${baseName(path)} already exists. Do you want to replace it?`, {
+    title: 'Confirm Save As',
+    kind: 'warning',
+  });
+
 const refFor = (path: string): TauriFileRef => ({
   name: baseName(path),
   path,
@@ -28,8 +35,12 @@ export const createTauriPort = (): FilePort => ({
     return path ? refFor(path) : null;
   },
   showSaveDialog: async (suggestedName) => {
-    const path = await save({ defaultPath: suggestedName, filters });
-    return path ? refFor(withExtension(path)) : null;
+    const typed = await save({ defaultPath: suggestedName, filters });
+    if (!typed) return null;
+    const path = withExtension(typed);
+    // The system dialog only checked the typed name; the file we write may be another one.
+    if (path !== typed && !(await confirmReplace(path))) return null;
+    return refFor(path);
   },
   readBytes: (file) => readFile(pathOf(file)),
   writeBytes: (file, bytes) =>

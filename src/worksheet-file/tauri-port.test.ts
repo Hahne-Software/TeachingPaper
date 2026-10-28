@@ -5,12 +5,14 @@ const tauri = vi.hoisted(() => ({
   save: vi.fn(),
   readFile: vi.fn(),
   invoke: vi.fn(),
+  confirm: vi.fn(),
   setTitle: vi.fn(),
 }));
 
 vi.mock('@tauri-apps/plugin-dialog', () => ({
   open: tauri.open,
   save: tauri.save,
+  confirm: tauri.confirm,
 }));
 vi.mock('@tauri-apps/plugin-fs', () => ({ readFile: tauri.readFile }));
 vi.mock('@tauri-apps/api/core', () => ({ invoke: tauri.invoke }));
@@ -82,6 +84,46 @@ describe('Tauri FilePort', () => {
     );
   });
 
+  describe('when the typed name lacks the extension and the .tpsheet file exists', () => {
+    beforeEach(() => {
+      tauri.save.mockResolvedValue('/a/foo');
+      tauri.invoke.mockImplementation(async (command: string) =>
+        command === 'file_exists' ? true : undefined,
+      );
+    });
+
+    it('asks before replacing it and saves when confirmed', async () => {
+      tauri.confirm.mockResolvedValue(true);
+      const ref = await createTauriPort().showSaveDialog('x.tpsheet');
+      expect(tauri.invoke).toHaveBeenCalledWith('file_exists', {
+        path: '/a/foo.tpsheet',
+      });
+      expect(tauri.confirm).toHaveBeenCalledOnce();
+      expect(tauri.confirm.mock.calls[0][0]).toContain('foo.tpsheet');
+      expect(ref?.name).toBe('foo.tpsheet');
+    });
+
+    it('returns null when the teacher declines', async () => {
+      tauri.confirm.mockResolvedValue(false);
+      expect(await createTauriPort().showSaveDialog('x.tpsheet')).toBeNull();
+    });
+  });
+
+  it('does not ask when the .tpsheet file does not exist yet', async () => {
+    tauri.save.mockResolvedValue('/a/foo');
+    tauri.invoke.mockResolvedValue(false);
+    const ref = await createTauriPort().showSaveDialog('x.tpsheet');
+    expect(tauri.confirm).not.toHaveBeenCalled();
+    expect(ref?.name).toBe('foo.tpsheet');
+  });
+
+  it('leaves the overwrite question to the dialog when the name has the extension', async () => {
+    tauri.save.mockResolvedValue('/a/foo.tpsheet');
+    await createTauriPort().showSaveDialog('x.tpsheet');
+    expect(tauri.invoke).not.toHaveBeenCalled();
+    expect(tauri.confirm).not.toHaveBeenCalled();
+  });
+
   it('keeps a name that already has the extension, whatever its case', async () => {
     tauri.save.mockResolvedValue('/a/ROME.TPSHEET');
     const ref = await createTauriPort().showSaveDialog('x.tpsheet');
@@ -98,7 +140,7 @@ describe('Tauri FilePort', () => {
     const port = createTauriPort();
     const ref = await port.showSaveDialog('x.tpsheet');
     await port.writeBytes(ref!, new Uint8Array());
-    expect(tauri.invoke.mock.calls[0][2].headers.path).toBe(
+    expect(tauri.invoke.mock.lastCall?.[2].headers.path).toBe(
       '%2Fa%2F%C3%9Cbung.tpsheet',
     );
   });
