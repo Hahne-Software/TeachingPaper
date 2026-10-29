@@ -4,7 +4,12 @@ import {
   type Mark,
   type TextRun,
 } from '../blocks/body-text-format';
-import { emptyMetadata, type WorksheetMetadata } from '../worksheet/metadata';
+import {
+  emptyMetadata,
+  metadataFields,
+  type WorksheetMetadata,
+} from '../worksheet/metadata';
+import { singleLine } from '../worksheet/single-line';
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 
 export const MEDIA_TYPE = 'application/vnd.teachingpaper.worksheet+zip';
@@ -19,14 +24,6 @@ export type StoredWorksheet = {
   metadata: WorksheetMetadata;
   blocks: StoredBlock[];
 };
-
-/** Metadata fields and their elements, in the order they are written. */
-const metadataElements: [keyof WorksheetMetadata, string][] = [
-  ['title', 'title'],
-  ['gradeLevel', 'grade'],
-  ['subject', 'subject'],
-  ['topic', 'topic'],
-];
 
 type HeadingData = { text: string; level: 1 | 2 | 3 };
 
@@ -111,9 +108,9 @@ const blockToXml = ({ type, data }: StoredBlock): string[] => {
 
 /** Empty fields are left out, and so is `metadata` when every field is empty. */
 const metadataToXml = (metadata: WorksheetMetadata): string[] => {
-  const fields = metadataElements.flatMap(([field, name]) => {
-    const text = escapeXml(metadata[field].replace(/[\r\n]+/g, ' '));
-    return text === '' ? [] : [`    <${name}>${text}</${name}>`];
+  const fields = metadataFields.flatMap(({ field, element }) => {
+    const text = escapeXml(singleLine(metadata[field]));
+    return text === '' ? [] : [`    <${element}>${text}</${element}>`];
   });
   return fields.length === 0
     ? []
@@ -240,43 +237,45 @@ const blockFromXml = (element: Element): StoredBlock => {
   }
 };
 
-const metadataFields = Object.fromEntries(
-  metadataElements.map(([field, name]) => [name, field]),
-);
+const isNamed = (element: Element | undefined, name: string) =>
+  element !== undefined && isElement(element, name);
 
-const metadataField = (child: Element, names: string[]) => {
-  const field =
-    child.namespaceURI === NAMESPACE
-      ? metadataFields[child.localName]
-      : undefined;
-  if (!field) return reject(`unsupported Metadata <${child.localName}>`);
-  if (names.indexOf(child.localName) !== names.lastIndexOf(child.localName))
-    reject(`<${child.localName}> appears twice in Metadata`);
+/** The field an element of `metadata` holds; rejects anything Format Version 1.0 does not allow. */
+const metadataFieldOf = (child: Element, siblings: Element[]) => {
+  const definition = metadataFields.find(({ element }) =>
+    isNamed(child, element),
+  );
+  if (!definition) return reject(`unsupported Metadata <${child.localName}>`);
+  const occurrences = siblings.filter((sibling) =>
+    isNamed(sibling, definition.element),
+  ).length;
+  if (occurrences > 1) reject(`<${child.localName}> appears twice in Metadata`);
   if (child.children.length > 0)
     reject(`<${child.localName}> may only contain text`);
-  return field;
+  return definition.field;
 };
 
 /** Reads `metadata`, whose children may come in any order; an empty element counts as absent. */
 const metadataFromXml = (element: Element): WorksheetMetadata => {
   const children = childElements(element);
-  const names = children.map((child) => child.localName);
   return children.reduce((metadata, child) => {
     const text = child.textContent ?? '';
     if (/[\r\n]/.test(text)) reject('line break in Metadata');
-    return { ...metadata, [metadataField(child, names)]: text };
+    return { ...metadata, [metadataFieldOf(child, children)]: text };
   }, emptyMetadata);
 };
 
-/** The root holds an optional `metadata`, then `blocks`. */
+/** The root holds an optional `metadata`, then `blocks`, and nothing else. */
 const worksheetParts = (root: Element) => {
-  const children = childElements(root);
-  const names = children.map((child) =>
-    child.namespaceURI === NAMESPACE ? child.localName : '',
-  );
-  if (names.join() === 'blocks') return { metadata: null, blocks: children[0] };
-  if (names.join() === 'metadata,blocks')
-    return { metadata: children[0], blocks: children[1] };
+  const [first, second, ...rest] = childElements(root);
+  if (isNamed(first, 'blocks') && second === undefined)
+    return { metadata: null, blocks: first };
+  if (
+    isNamed(first, 'metadata') &&
+    isNamed(second, 'blocks') &&
+    rest.length === 0
+  )
+    return { metadata: first, blocks: second };
   return reject('expected an optional <metadata> followed by <blocks>');
 };
 

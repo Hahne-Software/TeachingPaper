@@ -1,30 +1,21 @@
 import type { ClipboardEvent } from 'react';
+import { flushSync } from 'react-dom';
 import { blockTypes } from '../blocks/registry';
 import { useWorksheet } from '../worksheet/context';
-import type { WorksheetMetadata } from '../worksheet/metadata';
+import { metadataFields, type WorksheetMetadata } from '../worksheet/metadata';
+import { singleLine } from '../worksheet/single-line';
 
-const metadataFields: [keyof WorksheetMetadata, string][] = [
-  ['title', 'Title'],
-  ['gradeLevel', 'Grade Level'],
-  ['subject', 'Subject'],
-  ['topic', 'Topic'],
-];
-
-const lineBreaksToSpaces = (text: string) =>
-  text.replace(/\s*[\r\n]+\s*/g, ' ');
-
-/**
- * Inputs drop pasted line breaks silently, gluing the lines together; paste them as spaces
- * instead. Returns the input's new value.
- */
-const pasteSingleLine = (event: ClipboardEvent<HTMLInputElement>) => {
-  event.preventDefault();
-  const input = event.currentTarget;
-  const text = lineBreaksToSpaces(event.clipboardData.getData('text/plain'));
-  const start = input.selectionStart ?? input.value.length;
-  const end = input.selectionEnd ?? start;
-  input.setRangeText(text, start, end, 'end');
-  return input.value;
+/** `value` with `pasted` put in place of the selection, as one line; and the caret after it. */
+const pasteAsSingleLine = (
+  value: string,
+  selection: { start: number; end: number },
+  pasted: string,
+) => {
+  const text = singleLine(pasted);
+  return {
+    value: value.slice(0, selection.start) + text + value.slice(selection.end),
+    caret: selection.start + text.length,
+  };
 };
 
 function MetadataProperties() {
@@ -32,17 +23,34 @@ function MetadataProperties() {
   const update = (field: keyof WorksheetMetadata, value: string) =>
     dispatch({ type: 'updateMetadata', metadata: { [field]: value } });
 
+  // Inputs drop pasted line breaks silently, gluing the lines together; paste them as spaces.
+  const paste = (
+    field: keyof WorksheetMetadata,
+    event: ClipboardEvent<HTMLInputElement>,
+  ) => {
+    event.preventDefault();
+    const input = event.currentTarget;
+    const start = input.selectionStart ?? input.value.length;
+    const { value, caret } = pasteAsSingleLine(
+      input.value,
+      { start, end: input.selectionEnd ?? start },
+      event.clipboardData.getData('text/plain'),
+    );
+    flushSync(() => update(field, value));
+    input.setSelectionRange(caret, caret);
+  };
+
   return (
     <>
       <p className="muted">Worksheet</p>
-      {metadataFields.map(([field, label]) => (
+      {metadataFields.map(({ field, label }) => (
         <label key={field} className="field">
           {label}
           <input
             type="text"
             value={state.metadata[field]}
             onChange={(event) => update(field, event.target.value)}
-            onPaste={(event) => update(field, pasteSingleLine(event))}
+            onPaste={(event) => paste(field, event)}
           />
         </label>
       ))}

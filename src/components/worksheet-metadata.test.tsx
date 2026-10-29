@@ -58,6 +58,18 @@ describe('Worksheet Metadata in the Properties Panel', () => {
     expect(field('Topic')).toHaveValue('Rome Forum and baths');
   });
 
+  it('pastes over the selection and leaves the caret after the pasted text', async () => {
+    setup();
+    await userEvent.type(field('Title'), 'Daily XXX in Rome');
+    const title = field('Title') as HTMLInputElement;
+    title.setSelectionRange(6, 9);
+
+    await userEvent.paste('life\nand work');
+
+    expect(title).toHaveValue('Daily life and work in Rome');
+    expect([title.selectionStart, title.selectionEnd]).toEqual([19, 19]);
+  });
+
   it('saves the Metadata and restores it on Open', async () => {
     const { fake, menu } = setup();
     await userEvent.type(field('Title'), 'Daily life');
