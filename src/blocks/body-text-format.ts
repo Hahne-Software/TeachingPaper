@@ -13,7 +13,7 @@ export type BodyTextData = {
 };
 
 export type Mark = 'bold' | 'italic' | 'underline';
-export const marks: Mark[] = ['bold', 'italic', 'underline'];
+const marks: Mark[] = ['bold', 'italic', 'underline'];
 
 const sameFormatting = (a: TextRun, b: TextRun) =>
   marks.every((mark) => a[mark] === b[mark]);

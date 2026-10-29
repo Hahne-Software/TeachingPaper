@@ -15,8 +15,17 @@ export type StoredBlock = { type: string; data: unknown };
 
 type HeadingData = { text: string; level: 1 | 2 | 3 };
 
+/** Control characters, unpaired surrogates and U+FFFE/U+FFFF, which XML 1.0 cannot hold. */
+const notXmlCharacters =
+  // eslint-disable-next-line no-control-regex
+  /[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffe\uffff]|[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/g;
+
 const escapeXml = (text: string) =>
-  text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  text
+    .replace(notXmlCharacters, '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 
 /** Inline elements in canonical nesting order, outermost first. */
 const inlineElements: [Mark, string][] = [
@@ -49,8 +58,14 @@ const runsToXml = (runs: TextRun[], depth = 0): string => {
     .join('');
 };
 
+/** Body Text must not contain raw tabs or carriage returns (e.g. from pasted text). */
+const withoutTabsAndReturns = (run: TextRun): TextRun => ({
+  ...run,
+  text: run.text.replace(/\r\n?/g, '\n').replace(/\t/g, ' '),
+});
+
 const paragraphToXml = (runs: TextRun[]) => {
-  const inner = runsToXml(normalizeRuns(runs));
+  const inner = runsToXml(normalizeRuns(runs.map(withoutTabsAndReturns)));
   return inner === '' ? '      <p/>' : `      <p>${inner}</p>`;
 };
 
@@ -112,11 +127,9 @@ const parseXml = (xml: string) => {
   return document.documentElement;
 };
 
-const inlineMarks: Record<string, Mark> = {
-  b: 'bold',
-  i: 'italic',
-  u: 'underline',
-};
+const inlineMarks = Object.fromEntries(
+  inlineElements.map(([mark, name]) => [name, mark]),
+);
 
 const plain = { bold: false, italic: false, underline: false };
 
@@ -141,9 +154,10 @@ const runsFromXml = (node: Node, formatting: typeof plain): TextRun[] =>
       if (child.hasChildNodes()) reject('line break with content');
       return [{ text: '\n', ...formatting }];
     }
-    const mark = Object.entries(inlineMarks).find(([name]) =>
-      isElement(child, name),
-    )?.[1];
+    const mark =
+      (child as Element).namespaceURI === NAMESPACE
+        ? inlineMarks[(child as Element).localName]
+        : undefined;
     if (!mark) return reject('unsupported formatting in Body Text');
     return runsFromXml(child, { ...formatting, [mark]: true });
   });

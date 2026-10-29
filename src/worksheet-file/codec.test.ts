@@ -120,6 +120,26 @@ describe('Worksheet File codec', () => {
     ).toThrow();
   });
 
+  it('writes tabs as spaces and carriage returns as line breaks', () => {
+    const pasted = bodyText([run('a\tb\r\nc\rd', { bold: true })]);
+
+    expect(decodeWorksheet(encodeWorksheet([pasted]))).toEqual([
+      bodyText([run('a b\nc\nd', { bold: true })]),
+    ]);
+  });
+
+  it('leaves out characters XML cannot hold', () => {
+    const blocks = [
+      { type: 'heading', data: { text: 'a\u0000b\u000bc\ud800', level: 1 } },
+      bodyText([run('d\u0007e\u000cf\uffff')]),
+    ];
+
+    expect(decodeWorksheet(encodeWorksheet(blocks))).toEqual([
+      { type: 'heading', data: { text: 'abc', level: 1 } },
+      bodyText([run('def')]),
+    ]);
+  });
+
   it('keeps the order of mixed Headings and Body Texts', () => {
     expect(decodeWorksheet(encodeWorksheet(mixed))).toEqual(mixed);
   });
