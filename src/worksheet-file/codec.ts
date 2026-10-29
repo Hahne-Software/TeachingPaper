@@ -1,3 +1,9 @@
+import {
+  normalizeRuns,
+  type BodyTextData,
+  type Mark,
+  type TextRun,
+} from '../blocks/body-text-format';
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 
 export const MEDIA_TYPE = 'application/vnd.teachingpaper.worksheet+zip';
@@ -12,13 +18,56 @@ type HeadingData = { text: string; level: 1 | 2 | 3 };
 const escapeXml = (text: string) =>
   text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+/** Inline elements in canonical nesting order, outermost first. */
+const inlineElements: [Mark, string][] = [
+  ['bold', 'b'],
+  ['italic', 'i'],
+  ['underline', 'u'],
+];
+
+/** Splits runs into maximal groups of neighbours that agree on `mark`. */
+const groupByMark = (runs: TextRun[], mark: Mark) =>
+  runs.reduce<TextRun[][]>((groups, run) => {
+    const last = groups[groups.length - 1];
+    return last && last[0][mark] === run[mark]
+      ? [...groups.slice(0, -1), [...last, run]]
+      : [...groups, [run]];
+  }, []);
+
+/** Writes runs nested `b` › `i` › `u`, so neighbouring runs share their outer elements. */
+const runsToXml = (runs: TextRun[], depth = 0): string => {
+  if (depth === inlineElements.length)
+    return runs
+      .map((run) => escapeXml(run.text).replace(/\n/g, '<br/>'))
+      .join('');
+  const [mark, name] = inlineElements[depth];
+  return groupByMark(runs, mark)
+    .map((group) => {
+      const inner = runsToXml(group, depth + 1);
+      return group[0][mark] ? `<${name}>${inner}</${name}>` : inner;
+    })
+    .join('');
+};
+
+const paragraphToXml = (runs: TextRun[]) => {
+  const inner = runsToXml(normalizeRuns(runs));
+  return inner === '' ? '      <p/>' : `      <p>${inner}</p>`;
+};
+
 const blockToXml = ({ type, data }: StoredBlock): string[] => {
   switch (type) {
     case 'heading': {
       const { text, level } = data as HeadingData;
       return [`    <heading level="${level}">${escapeXml(text)}</heading>`];
     }
-    // Other Block Types are not written yet.
+    case 'body-text': {
+      const { paragraphs } = data as BodyTextData;
+      return [
+        '    <body-text>',
+        ...paragraphs.map(paragraphToXml),
+        '    </body-text>',
+      ];
+    }
     default:
       return [];
   }
@@ -63,6 +112,63 @@ const parseXml = (xml: string) => {
   return document.documentElement;
 };
 
+const inlineMarks: Record<string, Mark> = {
+  b: 'bold',
+  i: 'italic',
+  u: 'underline',
+};
+
+const plain = { bold: false, italic: false, underline: false };
+
+const isElement = (node: Node, name: string): node is Element =>
+  node.nodeType === Node.ELEMENT_NODE &&
+  (node as Element).namespaceURI === NAMESPACE &&
+  (node as Element).localName === name;
+
+/** Reads mixed content; a text has the formatting of every element enclosing it. */
+const runsFromXml = (node: Node, formatting: typeof plain): TextRun[] =>
+  Array.from(node.childNodes).flatMap((child): TextRun[] => {
+    if (
+      child.nodeType === Node.TEXT_NODE ||
+      child.nodeType === Node.CDATA_SECTION_NODE
+    ) {
+      const text = child.nodeValue ?? '';
+      if (/[\n\r\t]/.test(text)) reject('raw line break or tab in Body Text');
+      return [{ text, ...formatting }];
+    }
+    if (child.nodeType !== Node.ELEMENT_NODE) return [];
+    if (isElement(child, 'br')) {
+      if (child.hasChildNodes()) reject('line break with content');
+      return [{ text: '\n', ...formatting }];
+    }
+    const mark = Object.entries(inlineMarks).find(([name]) =>
+      isElement(child, name),
+    )?.[1];
+    if (!mark) return reject('unsupported formatting in Body Text');
+    return runsFromXml(child, { ...formatting, [mark]: true });
+  });
+
+/** Whitespace between the children of an element is insignificant; other text is not allowed. */
+const childElements = (element: Element) => {
+  Array.from(element.childNodes).forEach((child) => {
+    if (
+      child.nodeType === Node.TEXT_NODE &&
+      /[^ \t\r\n]/.test(child.nodeValue ?? '')
+    )
+      reject(`text inside <${element.localName}>`);
+  });
+  return Array.from(element.children);
+};
+
+const paragraphsFromXml = (element: Element): TextRun[][] => {
+  const paragraphs = childElements(element).map((child) => {
+    if (!isElement(child, 'p')) reject('Body Text may only contain paragraphs');
+    return normalizeRuns(runsFromXml(child, plain));
+  });
+  if (paragraphs.length === 0) reject('Body Text without paragraphs');
+  return paragraphs;
+};
+
 const blockFromXml = (element: Element): StoredBlock => {
   if (element.namespaceURI !== NAMESPACE)
     reject('element in a wrong namespace');
@@ -75,6 +181,13 @@ const blockFromXml = (element: Element): StoredBlock => {
         data: { text: element.textContent ?? '', level },
       };
     }
+    case 'body-text':
+      return {
+        type: 'body-text',
+        data: {
+          paragraphs: paragraphsFromXml(element),
+        },
+      };
     default:
       return reject(`unsupported Block Type "${element.localName}"`);
   }

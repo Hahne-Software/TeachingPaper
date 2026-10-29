@@ -12,14 +12,14 @@ export type BodyTextData = {
   paragraphs: TextRun[][];
 };
 
-type Mark = 'bold' | 'italic' | 'underline';
-const marks: Mark[] = ['bold', 'italic', 'underline'];
+export type Mark = 'bold' | 'italic' | 'underline';
+export const marks: Mark[] = ['bold', 'italic', 'underline'];
 
 const sameFormatting = (a: TextRun, b: TextRun) =>
   marks.every((mark) => a[mark] === b[mark]);
 
 /** Drops empty runs and merges neighbours, so each content has one stored form. */
-const normalizeRuns = (runs: TextRun[]): TextRun[] =>
+export const normalizeRuns = (runs: TextRun[]): TextRun[] =>
   runs
     .filter((run) => run.text !== '')
     .reduce<TextRun[]>((merged, run) => {
