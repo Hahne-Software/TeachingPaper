@@ -1,7 +1,7 @@
 // Drives the app in WebKitGTK (the Tauri engine) through WebKitWebDriver. No dependencies.
 // Usage: pnpm verify:ui <steps-file.mjs> <out-dir>
 // Starts `pnpm dev` when :1420 is free and stops it afterwards; a server that was already running stays up.
-// The steps file default-exports `async ({ exec, key, click, drag, drop, shot, sleep }) => {}`.
+// The steps file default-exports `async ({ exec, key, chord, click, drag, drop, shot, sleep, files }) => {}`.
 // `click` hits the first match only; reach any other element with `exec` (e.g. `document.querySelectorAll(sel)[1].click()`).
 import { spawn } from 'node:child_process';
 import { execFileSync } from 'node:child_process';
@@ -71,14 +71,15 @@ try {
         browserName: 'MiniBrowser',
         'webkitgtk:browserOptions': {
           binary: join(webkit, 'libexec/webkit2gtk-4.1/MiniBrowser'),
-          args: ['--automation'],
+          // Full screen: a tiling window manager (e.g. sway) ignores the requested window size,
+          // and a narrow window scrolls the Page sideways.
+          args: ['--automation', '--full-screen'],
         },
       },
     },
   });
   const sp = `/session/${session.sessionId}`;
   await call('POST', `${sp}/url`, { url: 'http://localhost:1420' });
-  await call('POST', `${sp}/window/rect`, { width: 1400, height: 1000 });
   await sleep(1500);
 
   const helpers = {
@@ -100,6 +101,57 @@ try {
           },
         ],
       }),
+    /** Presses keys together and releases them in reverse, e.g. chord('\uE008', '\uE007') for Shift+Enter. */
+    chord: (...keys) =>
+      call('POST', `${sp}/actions`, {
+        actions: [
+          {
+            type: 'key',
+            id: 'k',
+            actions: [
+              ...keys.map((value) => ({ type: 'keyDown', value })),
+              ...[...keys].reverse().map((value) => ({ type: 'keyUp', value })),
+            ],
+          },
+        ],
+      }),
+    /**
+     * Stands in for the native file dialogs, which WebDriver cannot drive. Call `files.stub()` after
+     * every page load; then `files.offer(bytes, name)` answers the next file picker, and
+     * `files.saved()` returns the bytes of the last download as a Buffer (null if none).
+     */
+    files: {
+      stub: () =>
+        helpers.exec(`
+          window.__download = null;
+          window.__offer = null;
+          HTMLAnchorElement.prototype.click = function () {
+            window.__download = fetch(this.href)
+              .then((response) => response.arrayBuffer())
+              .then((buffer) => {
+                let binary = '';
+                new Uint8Array(buffer).forEach((byte) => (binary += String.fromCharCode(byte)));
+                return btoa(binary);
+              });
+          };
+          HTMLInputElement.prototype.click = function () {
+            if (!window.__offer) return this.dispatchEvent(new Event('cancel'));
+            const transfer = new DataTransfer();
+            transfer.items.add(window.__offer);
+            this.files = transfer.files;
+            this.dispatchEvent(new Event('change'));
+          };`),
+      offer: (bytes, name = 'Worksheet.tpsheet') =>
+        helpers.exec(
+          `const bytes = Uint8Array.from(atob(arguments[0]), (c) => c.charCodeAt(0));
+           window.__offer = new File([bytes], arguments[1]);`,
+          [Buffer.from(bytes).toString('base64'), name],
+        ),
+      saved: async () => {
+        const base64 = await helpers.exec('return window.__download');
+        return base64 ? Buffer.from(base64, 'base64') : null;
+      },
+    },
     /** Real click on the first element matching the CSS selector. */
     click: async (selector) => {
       const found = await call('POST', `${sp}/element`, {
