@@ -75,5 +75,5 @@ The sidebar listing the available Block Types, from which Blocks are added to th
 _Avoid_: Toolbox, library, sidebar
 
 **Properties Panel**:
-The sidebar showing the settings of the selected Block.
+The sidebar showing the settings of the selected Block, or the Worksheet Metadata when no Block is selected.
 _Avoid_: Inspector, settings panel

@@ -34,9 +34,9 @@ export function FileCommands({
 }) {
   const { state, dispatch } = useWorksheet();
   const [file, setFile] = useState<FileRef | null>(null);
-  const latest = useRef({ blocks: state.blocks, file });
+  const latest = useRef({ state, file });
   useEffect(() => {
-    latest.current = { blocks: state.blocks, file };
+    latest.current = { state, file };
   });
 
   useEffect(() => {
@@ -45,10 +45,13 @@ export function FileCommands({
 
   const writeTo = useCallback(
     async (target: FileRef) => {
-      const { blocks } = latest.current;
+      const { metadata, blocks } = latest.current.state;
       await port.writeBytes(
         target,
-        encodeWorksheet(blocks.map(({ type, data }) => ({ type, data }))),
+        encodeWorksheet({
+          metadata,
+          blocks: blocks.map(({ type, data }) => ({ type, data })),
+        }),
       );
       setFile(target);
     },
@@ -71,8 +74,8 @@ export function FileCommands({
   const open = useCallback(async () => {
     const chosen = await port.showOpenDialog();
     if (!chosen) return;
-    const blocks = decodeWorksheet(await port.readBytes(chosen));
-    dispatch({ type: 'replace', blocks });
+    const worksheet = decodeWorksheet(await port.readBytes(chosen));
+    dispatch({ type: 'replace', ...worksheet });
     setFile(chosen);
   }, [port, dispatch]);
 

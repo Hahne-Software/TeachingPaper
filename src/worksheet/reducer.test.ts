@@ -4,6 +4,7 @@ import {
   initialState,
   type WorksheetState,
 } from './reducer';
+import { emptyMetadata } from './metadata';
 
 const worksheetReducer = createWorksheetReducer({
   heading: () => ({ text: '', level: 1 }),
@@ -292,6 +293,7 @@ describe('worksheetReducer replace', () => {
 
     state = worksheetReducer(state, {
       type: 'replace',
+      metadata: emptyMetadata,
       blocks: [
         { type: 'heading', data: { text: 'A', level: 2 } },
         { type: 'heading', data: { text: 'B', level: 3 } },
@@ -305,5 +307,45 @@ describe('worksheetReducer replace', () => {
     expect(new Set(state.blocks.map((b) => b.id)).size).toBe(2);
     expect(state.blocks.map((b) => b.id)).not.toContain(oldId);
     expect(state.selectedId).toBeNull();
+  });
+});
+
+describe('worksheetReducer Worksheet Metadata', () => {
+  it('starts with empty Metadata', () => {
+    expect(initialState.metadata).toEqual(emptyMetadata);
+  });
+
+  it('updates single Metadata fields and keeps them through Block changes', () => {
+    let state = worksheetReducer(initialState, {
+      type: 'updateMetadata',
+      metadata: { title: 'Rome' },
+    });
+    state = worksheetReducer(state, {
+      type: 'updateMetadata',
+      metadata: { subject: 'History' },
+    });
+    state = worksheetReducer(state, { type: 'insert', blockType: 'heading' });
+    state = worksheetReducer(state, { type: 'deselect' });
+
+    expect(state.metadata).toEqual({
+      ...emptyMetadata,
+      title: 'Rome',
+      subject: 'History',
+    });
+  });
+
+  it('takes the Metadata of a replacing Worksheet', () => {
+    const before = worksheetReducer(initialState, {
+      type: 'updateMetadata',
+      metadata: { title: 'Old', topic: 'Old topic' },
+    });
+
+    const state = worksheetReducer(before, {
+      type: 'replace',
+      metadata: { ...emptyMetadata, title: 'New' },
+      blocks: [],
+    });
+
+    expect(state.metadata).toEqual({ ...emptyMetadata, title: 'New' });
   });
 });

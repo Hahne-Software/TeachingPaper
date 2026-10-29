@@ -9,6 +9,7 @@ import {
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import App from '../App';
+import { emptyMetadata } from '../worksheet/metadata';
 import { encodeWorksheet } from './codec';
 import { createFakePort } from './fake-port';
 import type { MenuEvents } from './file-commands';
@@ -102,7 +103,10 @@ describe('Worksheet File commands', () => {
     const { fake, key } = setup();
     fake.files.set(
       'x.tpsheet',
-      encodeWorksheet([{ type: 'heading', data: { text: 'X', level: 1 } }]),
+      encodeWorksheet({
+        metadata: emptyMetadata,
+        blocks: [{ type: 'heading', data: { text: 'X', level: 1 } }],
+      }),
     );
 
     fake.answerOpen('x.tpsheet');
@@ -121,7 +125,10 @@ describe('Worksheet File commands', () => {
   it('shows the current file name in the window title', async () => {
     const { fake, menu } = setup();
     expect(lastTitle(fake)).toBe('TeachingPaper');
-    fake.files.set('x.tpsheet', encodeWorksheet([]));
+    fake.files.set(
+      'x.tpsheet',
+      encodeWorksheet({ metadata: emptyMetadata, blocks: [] }),
+    );
 
     fake.answerOpen('x.tpsheet');
     await menu('open-file');

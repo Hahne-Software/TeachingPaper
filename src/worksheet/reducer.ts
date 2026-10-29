@@ -1,3 +1,5 @@
+import { emptyMetadata, type WorksheetMetadata } from './metadata';
+
 export type Block = {
   id: string;
   type: string;
@@ -5,6 +7,7 @@ export type Block = {
 };
 
 export type WorksheetState = {
+  metadata: WorksheetMetadata;
   blocks: Block[];
   selectedId: string | null;
   nextId: number;
@@ -17,11 +20,17 @@ export type WorksheetAction =
   /** `index` is a drop position in the list as it is before the move. */
   | { type: 'move'; id: string; index: number }
   /** Replaces the whole Worksheet, e.g. after opening a Worksheet File. */
-  | { type: 'replace'; blocks: { type: string; data: unknown }[] }
+  | {
+      type: 'replace';
+      metadata: WorksheetMetadata;
+      blocks: { type: string; data: unknown }[];
+    }
+  | { type: 'updateMetadata'; metadata: Partial<WorksheetMetadata> }
   | { type: 'select'; id: string }
   | { type: 'deselect' };
 
 export const initialState: WorksheetState = {
+  metadata: emptyMetadata,
   blocks: [],
   selectedId: null,
   nextId: 1,
@@ -52,6 +61,7 @@ export const createWorksheetReducer =
           state.blocks.length,
         );
         return {
+          ...state,
           blocks: [
             ...state.blocks.slice(0, index),
             block,
@@ -84,12 +94,18 @@ export const createWorksheetReducer =
       }
       case 'replace':
         return {
+          metadata: action.metadata,
           blocks: action.blocks.map((block, i) => ({
             ...block,
             id: `block-${state.nextId + i}`,
           })),
           selectedId: null,
           nextId: state.nextId + action.blocks.length,
+        };
+      case 'updateMetadata':
+        return {
+          ...state,
+          metadata: { ...state.metadata, ...action.metadata },
         };
       case 'select':
         return state.blocks.some((b) => b.id === action.id)
