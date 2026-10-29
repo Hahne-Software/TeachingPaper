@@ -1,8 +1,9 @@
-// Drives the app in WebKitGTK (the Tauri engine) through WebKitWebDriver. No dependencies.
+// Drives the app in WebKitGTK (the Tauri engine) through WebKitWebDriver. Needs only the repo's own fflate.
 // Usage: pnpm verify:ui <steps-file.mjs> <out-dir>
 // Starts `pnpm dev` when :1420 is free and stops it afterwards; a server that was already running stays up.
-// The steps file default-exports `async ({ exec, key, chord, click, drag, drop, shot, sleep, files }) => {}`.
+// The steps file default-exports `async ({ exec, key, chord, paste, click, drag, drop, shot, sleep, files }) => {}`.
 // `click` hits the first match only; reach any other element with `exec` (e.g. `document.querySelectorAll(sel)[1].click()`).
+import { strFromU8, unzipSync } from 'fflate';
 import { spawn } from 'node:child_process';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';
@@ -87,17 +88,22 @@ try {
     /** Runs a script in the page; `return` its result. */
     exec: (script, args = []) =>
       call('POST', `${sp}/execute/sync`, { script, args }),
-    /** Sends key presses, e.g. key('a', '') (W3C key codes: Backspace , Delete ). */
+    /**
+     * Types each character of each argument in turn: key('Rome', '\uE003') types "Rome", then Backspace
+     * (W3C key codes are single characters).
+     */
     key: (...keys) =>
       call('POST', `${sp}/actions`, {
         actions: [
           {
             type: 'key',
             id: 'k',
-            actions: keys.flatMap((value) => [
-              { type: 'keyDown', value },
-              { type: 'keyUp', value },
-            ]),
+            actions: keys
+              .flatMap((text) => [...text])
+              .flatMap((value) => [
+                { type: 'keyDown', value },
+                { type: 'keyUp', value },
+              ]),
           },
         ],
       }),
@@ -115,10 +121,21 @@ try {
           },
         ],
       }),
+    /** Pastes `text` into the focused element, as a paste event with `text/plain` on the clipboard. */
+    paste: (text) =>
+      helpers.exec(
+        `const transfer = new DataTransfer();
+         transfer.setData('text/plain', arguments[0]);
+         const event = new ClipboardEvent('paste', { clipboardData: transfer, bubbles: true, cancelable: true });
+         // Without a handler that cancels the event, the browser inserts nothing: do it like a real paste.
+         if (document.activeElement.dispatchEvent(event)) document.execCommand('insertText', false, arguments[0]);`,
+        [text],
+      ),
     /**
      * Stands in for the native file dialogs, which WebDriver cannot drive. Call `files.stub()` after
      * every page load; then `files.offer(bytes, name)` answers the next file picker, and
-     * `files.saved()` returns the bytes of the last download as a Buffer (null if none).
+     * `files.saved()` returns the bytes of the last download as a Buffer (null if none), and
+     * `files.savedXml()` its `worksheet.xml` as text.
      */
     files: {
       stub: () =>
@@ -150,6 +167,10 @@ try {
       saved: async () => {
         const base64 = await helpers.exec('return window.__download');
         return base64 ? Buffer.from(base64, 'base64') : null;
+      },
+      savedXml: async () => {
+        const bytes = await helpers.files.saved();
+        return bytes ? strFromU8(unzipSync(bytes)['worksheet.xml']) : null;
       },
     },
     /** Real click on the first element matching the CSS selector. */
