@@ -140,6 +140,19 @@ describe('Worksheet File codec', () => {
     ]);
   });
 
+  it('writes no empty formatting for text XML cannot hold', () => {
+    const blocks = [
+      bodyText(
+        [run('\u0000', { bold: true })],
+        [run('x', { italic: true }), run('\ud800'), run('y', { italic: true })],
+      ),
+    ];
+
+    expect(worksheetXml(encodeWorksheet(blocks))).toContain(
+      '      <p/>\n      <p><i>xy</i></p>',
+    );
+  });
+
   it('keeps the order of mixed Headings and Body Texts', () => {
     expect(decodeWorksheet(encodeWorksheet(mixed))).toEqual(mixed);
   });

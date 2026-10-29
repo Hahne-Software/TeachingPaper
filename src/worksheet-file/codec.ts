@@ -58,14 +58,20 @@ const runsToXml = (runs: TextRun[], depth = 0): string => {
     .join('');
 };
 
-/** Body Text must not contain raw tabs or carriage returns (e.g. from pasted text). */
-const withoutTabsAndReturns = (run: TextRun): TextRun => ({
+/**
+ * Body Text must not contain raw tabs or carriage returns (e.g. from pasted text). Cleaned before
+ * the runs are merged, so a run left empty writes no empty formatting element.
+ */
+const storableRun = (run: TextRun): TextRun => ({
   ...run,
-  text: run.text.replace(/\r\n?/g, '\n').replace(/\t/g, ' '),
+  text: run.text
+    .replace(notXmlCharacters, '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/\t/g, ' '),
 });
 
 const paragraphToXml = (runs: TextRun[]) => {
-  const inner = runsToXml(normalizeRuns(runs.map(withoutTabsAndReturns)));
+  const inner = runsToXml(normalizeRuns(runs.map(storableRun)));
   return inner === '' ? '      <p/>' : `      <p>${inner}</p>`;
 };
 
