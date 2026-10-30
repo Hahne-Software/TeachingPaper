@@ -119,8 +119,7 @@ export function FileCommands({
       return fail('Could not open', subject, error);
     }
     const result = readWorksheet(bytes);
-    if (!result.ok)
-      return port.showError('Could not open', `${subject}. ${result.reason}`);
+    if (!result.ok) return fail('Could not open', subject, result.reason);
     dispatch({ type: 'replace', ...result.worksheet });
     setFile(chosen);
   }, [port, dispatch, settleChanges, fail]);
