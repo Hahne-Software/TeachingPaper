@@ -235,6 +235,23 @@ body,
   font-size: 0.85rem;
 }
 
+.properties-panel .field input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 8px;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid rgba(127, 127, 127, 0.4);
+  border-radius: 4px;
+}
+
+.properties-panel .field input:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: -1px;
+  border-color: #3b82f6;
+}
+
 .segmented {
   display: flex;
 }

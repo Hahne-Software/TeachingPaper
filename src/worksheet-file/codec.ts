@@ -4,6 +4,12 @@ import {
   type Mark,
   type TextRun,
 } from '../blocks/body-text-format';
+import {
+  emptyMetadata,
+  metadataFields,
+  type WorksheetMetadata,
+} from '../worksheet/metadata';
+import { singleLine } from '../worksheet/single-line';
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 
 export const MEDIA_TYPE = 'application/vnd.teachingpaper.worksheet+zip';
@@ -12,6 +18,12 @@ const FORMAT_VERSION = '1.0';
 
 /** A Block as stored in a Worksheet File: without the editor's session id. */
 export type StoredBlock = { type: string; data: unknown };
+
+/** A Worksheet as stored in a Worksheet File. */
+export type StoredWorksheet = {
+  metadata: WorksheetMetadata;
+  blocks: StoredBlock[];
+};
 
 type HeadingData = { text: string; level: 1 | 2 | 3 };
 
@@ -94,10 +106,22 @@ const blockToXml = ({ type, data }: StoredBlock): string[] => {
   }
 };
 
-const worksheetToXml = (blocks: StoredBlock[]) =>
+/** Empty fields are left out, and so is `metadata` when every field is empty. */
+const metadataToXml = (metadata: WorksheetMetadata): string[] => {
+  const fields = metadataFields.flatMap(({ field, element }) => {
+    const text = escapeXml(singleLine(metadata[field]));
+    return text === '' ? [] : [`    <${element}>${text}</${element}>`];
+  });
+  return fields.length === 0
+    ? []
+    : ['  <metadata>', ...fields, '  </metadata>'];
+};
+
+const worksheetToXml = ({ metadata, blocks }: StoredWorksheet) =>
   [
     '<?xml version="1.0" encoding="UTF-8"?>',
     `<worksheet xmlns="${NAMESPACE}" version="${FORMAT_VERSION}">`,
+    ...metadataToXml(metadata),
     '  <blocks>',
     ...blocks.flatMap(blockToXml),
     '  </blocks>',
@@ -106,10 +130,10 @@ const worksheetToXml = (blocks: StoredBlock[]) =>
   ].join('\n');
 
 /** Packs a Worksheet into the bytes of a Worksheet File. */
-export const encodeWorksheet = (blocks: StoredBlock[]): Uint8Array =>
+export const encodeWorksheet = (worksheet: StoredWorksheet): Uint8Array =>
   zipSync({
     mimetype: [strToU8(MEDIA_TYPE), { level: 0 }],
-    'worksheet.xml': strToU8(worksheetToXml(blocks)),
+    'worksheet.xml': strToU8(worksheetToXml(worksheet)),
   });
 
 const reject = (reason: string): never => {
@@ -213,8 +237,50 @@ const blockFromXml = (element: Element): StoredBlock => {
   }
 };
 
+const isNamed = (element: Element | undefined, name: string) =>
+  element !== undefined && isElement(element, name);
+
+/** The field an element of `metadata` holds; rejects anything Format Version 1.0 does not allow. */
+const metadataFieldOf = (child: Element, siblings: Element[]) => {
+  const definition = metadataFields.find(({ element }) =>
+    isNamed(child, element),
+  );
+  if (!definition) return reject(`unsupported Metadata <${child.localName}>`);
+  const occurrences = siblings.filter((sibling) =>
+    isNamed(sibling, definition.element),
+  ).length;
+  if (occurrences > 1) reject(`<${child.localName}> appears twice in Metadata`);
+  if (child.children.length > 0)
+    reject(`<${child.localName}> may only contain text`);
+  return definition.field;
+};
+
+/** Reads `metadata`, whose children may come in any order; an empty element counts as absent. */
+const metadataFromXml = (element: Element): WorksheetMetadata => {
+  const children = childElements(element);
+  return children.reduce((metadata, child) => {
+    const text = child.textContent ?? '';
+    if (/[\r\n]/.test(text)) reject('line break in Metadata');
+    return { ...metadata, [metadataFieldOf(child, children)]: text };
+  }, emptyMetadata);
+};
+
+/** The root holds an optional `metadata`, then `blocks`, and nothing else. */
+const worksheetParts = (root: Element) => {
+  const [first, second, ...rest] = childElements(root);
+  if (isNamed(first, 'blocks') && second === undefined)
+    return { metadata: null, blocks: first };
+  if (
+    isNamed(first, 'metadata') &&
+    isNamed(second, 'blocks') &&
+    rest.length === 0
+  )
+    return { metadata: first, blocks: second };
+  return reject('expected an optional <metadata> followed by <blocks>');
+};
+
 /** Reads the Worksheet out of the bytes of a Worksheet File; throws if the file is invalid. */
-export const decodeWorksheet = (bytes: Uint8Array): StoredBlock[] => {
+export const decodeWorksheet = (bytes: Uint8Array): StoredWorksheet => {
   const entries = unzip(bytes);
   if (!entries.mimetype || strFromU8(entries.mimetype) !== MEDIA_TYPE)
     reject('wrong or missing mimetype');
@@ -224,8 +290,9 @@ export const decodeWorksheet = (bytes: Uint8Array): StoredBlock[] => {
     reject('root element is not a worksheet');
   if (root.getAttribute('version') !== FORMAT_VERSION)
     reject('unsupported Format Version');
-  const blocks = Array.from(root.children).find(
-    (child) => child.localName === 'blocks',
-  );
-  return Array.from(blocks?.children ?? [], blockFromXml);
+  const parts = worksheetParts(root);
+  return {
+    metadata: parts.metadata ? metadataFromXml(parts.metadata) : emptyMetadata,
+    blocks: childElements(parts.blocks).map(blockFromXml),
+  };
 };

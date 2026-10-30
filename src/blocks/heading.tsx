@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { singleLine } from '../worksheet/single-line';
 import {
   defineBlockType,
   type BlockPropertiesProps,
@@ -9,8 +10,6 @@ export type HeadingData = {
   text: string;
   level: 1 | 2 | 3;
 };
-
-const stripLineBreaks = (text: string) => text.replace(/\s*[\r\n]+\s*/g, ' ');
 
 function HeadingView({
   data,
@@ -49,7 +48,7 @@ function HeadingView({
       }}
       onPaste={(event) => {
         event.preventDefault();
-        const text = stripLineBreaks(event.clipboardData.getData('text/plain'));
+        const text = singleLine(event.clipboardData.getData('text/plain'));
         document.execCommand('insertText', false, text);
       }}
     />

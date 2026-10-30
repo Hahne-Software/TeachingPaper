@@ -7,7 +7,20 @@ import emptyExample from '../../docs/format/examples/valid/empty.xml?raw';
 import ancientRome from '../../docs/format/examples/valid/ancient-rome.xml?raw';
 import emptyBodyText from '../../docs/format/examples/invalid/empty-body-text.xml?raw';
 import unknownInline from '../../docs/format/examples/invalid/unknown-inline-element.xml?raw';
-import { MEDIA_TYPE, decodeWorksheet, encodeWorksheet } from './codec';
+import partialMetadata from '../../docs/format/examples/valid/partial-metadata.xml?raw';
+import duplicateMetadata from '../../docs/format/examples/invalid/duplicate-metadata-element.xml?raw';
+import metadataAfterBlocks from '../../docs/format/examples/invalid/metadata-after-blocks.xml?raw';
+import { emptyMetadata } from '../worksheet/metadata';
+import {
+  MEDIA_TYPE,
+  decodeWorksheet,
+  encodeWorksheet,
+  type StoredBlock,
+} from './codec';
+
+const encodeBlocks = (blocks: StoredBlock[]) =>
+  encodeWorksheet({ metadata: emptyMetadata, blocks });
+const decodeBlocks = (bytes: Uint8Array) => decodeWorksheet(bytes).blocks;
 
 const validExamples = Object.entries(
   import.meta.glob<string>('../../docs/format/examples/valid/*.xml', {
@@ -70,7 +83,7 @@ describe('Worksheet File codec', () => {
   it('restores a plain Body Text paragraph', () => {
     const blocks = [bodyText([run('Read the text.')])];
 
-    expect(decodeWorksheet(encodeWorksheet(blocks))).toEqual(blocks);
+    expect(decodeBlocks(encodeBlocks(blocks))).toEqual(blocks);
   });
 
   it('restores every combination of bold, italic and underline', () => {
@@ -87,7 +100,7 @@ describe('Worksheet File codec', () => {
     );
     const blocks = [bodyText(...runs)];
 
-    expect(decodeWorksheet(encodeWorksheet(blocks))).toEqual(blocks);
+    expect(decodeBlocks(encodeBlocks(blocks))).toEqual(blocks);
   });
 
   it('restores line breaks, empty paragraphs and multiple paragraphs', () => {
@@ -107,7 +120,7 @@ describe('Worksheet File codec', () => {
       ),
     ];
 
-    expect(decodeWorksheet(encodeWorksheet(blocks))).toEqual(blocks);
+    expect(decodeBlocks(encodeBlocks(blocks))).toEqual(blocks);
   });
 
   it.each([
@@ -116,14 +129,14 @@ describe('Worksheet File codec', () => {
     ['tab', '<p><b>one\ttwo</b></p>'],
   ])('rejects a raw %s in Body Text', (_, paragraph) => {
     expect(() =>
-      decodeWorksheet(withBlocks(`<body-text>${paragraph}</body-text>`)),
+      decodeBlocks(withBlocks(`<body-text>${paragraph}</body-text>`)),
     ).toThrow();
   });
 
   it('writes tabs as spaces and carriage returns as line breaks', () => {
     const pasted = bodyText([run('a\tb\r\nc\rd', { bold: true })]);
 
-    expect(decodeWorksheet(encodeWorksheet([pasted]))).toEqual([
+    expect(decodeBlocks(encodeBlocks([pasted]))).toEqual([
       bodyText([run('a b\nc\nd', { bold: true })]),
     ]);
   });
@@ -134,7 +147,7 @@ describe('Worksheet File codec', () => {
       bodyText([run('d\u0007e\u000cf\uffff')]),
     ];
 
-    expect(decodeWorksheet(encodeWorksheet(blocks))).toEqual([
+    expect(decodeBlocks(encodeBlocks(blocks))).toEqual([
       { type: 'heading', data: { text: 'abc', level: 1 } },
       bodyText([run('def')]),
     ]);
@@ -148,17 +161,17 @@ describe('Worksheet File codec', () => {
       ),
     ];
 
-    expect(worksheetXml(encodeWorksheet(blocks))).toContain(
+    expect(worksheetXml(encodeBlocks(blocks))).toContain(
       '      <p/>\n      <p><i>xy</i></p>',
     );
   });
 
   it('keeps the order of mixed Headings and Body Texts', () => {
-    expect(decodeWorksheet(encodeWorksheet(mixed))).toEqual(mixed);
+    expect(decodeBlocks(encodeBlocks(mixed))).toEqual(mixed);
   });
 
   it('writes Body Text in the canonical form of the spec', () => {
-    expect(worksheetXml(encodeWorksheet([specExample]))).toContain(
+    expect(worksheetXml(encodeBlocks([specExample]))).toContain(
       [
         '    <body-text>',
         '      <p>Plain, <b>bold, <i>bold and italic</i></b> and <u>underlined</u>.<br/>Next line.</p>',
@@ -182,8 +195,8 @@ describe('Worksheet File codec', () => {
       run('Next line.'),
     ]);
 
-    expect(worksheetXml(encodeWorksheet([split]))).toBe(
-      worksheetXml(encodeWorksheet([specExample])),
+    expect(worksheetXml(encodeBlocks([split]))).toBe(
+      worksheetXml(encodeBlocks([specExample])),
     );
   });
 
@@ -192,7 +205,7 @@ describe('Worksheet File codec', () => {
       '<body-text><p><u><i><b>all</b></i></u> <i>it<i>al<b>ic</b></i></i><b><br/></b></p></body-text>',
     );
 
-    expect(decodeWorksheet(bytes)).toEqual([
+    expect(decodeBlocks(bytes)).toEqual([
       bodyText([
         run('all', { bold: true, italic: true, underline: true }),
         run(' '),
@@ -208,17 +221,15 @@ describe('Worksheet File codec', () => {
       '<body-text><p>a <![CDATA[<b>not bold</b>]]></p></body-text>',
     );
 
-    expect(decodeWorksheet(bytes)).toEqual([
-      bodyText([run('a <b>not bold</b>')]),
-    ]);
+    expect(decodeBlocks(bytes)).toEqual([bodyText([run('a <b>not bold</b>')])]);
   });
 
   it.each(validExamples)('opens valid/$name, zipped', ({ contents }) => {
-    expect(() => decodeWorksheet(zipXml(contents))).not.toThrow();
+    expect(() => decodeBlocks(zipXml(contents))).not.toThrow();
   });
 
   it('opens the Ancient Rome example with its Body Text', () => {
-    expect(decodeWorksheet(zipXml(ancientRome))).toEqual([
+    expect(decodeBlocks(zipXml(ancientRome))).toEqual([
       {
         type: 'heading',
         data: { text: 'Daily life in Ancient Rome', level: 1 },
@@ -250,7 +261,7 @@ describe('Worksheet File codec', () => {
     ['invalid/empty-body-text.xml', emptyBodyText],
     ['invalid/unknown-inline-element.xml', unknownInline],
   ])('rejects %s', (_, contents) => {
-    expect(() => decodeWorksheet(zipXml(contents))).toThrow();
+    expect(() => decodeBlocks(zipXml(contents))).toThrow();
   });
 
   it.each([
@@ -269,15 +280,15 @@ describe('Worksheet File codec', () => {
     ],
     ['a line break with content', '<body-text><p><br>x</br></p></body-text>'],
   ])('rejects Body Text with %s', (_, blockXml) => {
-    expect(() => decodeWorksheet(withBlocks(blockXml))).toThrow();
+    expect(() => decodeBlocks(withBlocks(blockXml))).toThrow();
   });
 
   it('restores Headings with texts, Heading Levels and order', () => {
-    expect(decodeWorksheet(encodeWorksheet(headings))).toEqual(headings);
+    expect(decodeBlocks(encodeBlocks(headings))).toEqual(headings);
   });
 
   it('stores mimetype first and uncompressed with the exact media type', () => {
-    const bytes = encodeWorksheet(headings);
+    const bytes = encodeBlocks(headings);
     const view = new DataView(bytes.buffer, bytes.byteOffset);
 
     expect(strFromU8(bytes.subarray(30, 38))).toBe('mimetype');
@@ -288,7 +299,7 @@ describe('Worksheet File codec', () => {
   });
 
   it('writes a worksheet.xml that validates against the schema', async () => {
-    const xml = worksheetXml(encodeWorksheet(mixed));
+    const xml = worksheetXml(encodeBlocks(mixed));
 
     const result = await validateXML({
       xml: { fileName: 'worksheet.xml', contents: xml },
@@ -299,13 +310,100 @@ describe('Worksheet File codec', () => {
   });
 
   it('opens the valid empty example, zipped, as an empty Worksheet', () => {
-    expect(decodeWorksheet(zipXml(emptyExample))).toEqual([]);
+    expect(decodeBlocks(zipXml(emptyExample))).toEqual([]);
   });
 
   it('rejects files that are not Worksheet Files', () => {
-    expect(() => decodeWorksheet(strToU8('not a zip'))).toThrow();
+    expect(() => decodeBlocks(strToU8('not a zip'))).toThrow();
     expect(() =>
-      decodeWorksheet(zipSync({ mimetype: strToU8('text/plain') })),
+      decodeBlocks(zipSync({ mimetype: strToU8('text/plain') })),
     ).toThrow();
+  });
+});
+
+const metadata = {
+  title: 'Daily life in Ancient Rome',
+  gradeLevel: '7/8',
+  subject: 'History & <Latin>',
+  topic: '  Ancient Rome  ',
+};
+
+const withMetadata = (metadataXml: string) =>
+  zipXml(
+    `<worksheet xmlns="https://hahne.software/ns/teachingpaper/worksheet" version="1.0"><metadata>${metadataXml}</metadata><blocks/></worksheet>`,
+  );
+
+describe('Worksheet Metadata in Worksheet Files', () => {
+  it('restores every Metadata field', () => {
+    const worksheet = { metadata, blocks: headings };
+
+    expect(decodeWorksheet(encodeWorksheet(worksheet))).toEqual(worksheet);
+  });
+
+  it('leaves out empty fields, and the whole metadata when all are empty', () => {
+    const partial = { ...emptyMetadata, title: 'Rome', topic: 'Forum' };
+
+    expect(
+      worksheetXml(encodeWorksheet({ metadata: partial, blocks: [] })),
+    ).toContain(
+      [
+        '  <metadata>',
+        '    <title>Rome</title>',
+        '    <topic>Forum</topic>',
+        '  </metadata>',
+      ].join('\n'),
+    );
+    expect(
+      worksheetXml(encodeWorksheet({ metadata: emptyMetadata, blocks: [] })),
+    ).not.toContain('metadata');
+  });
+
+  it('writes line breaks in Metadata as spaces', () => {
+    const pasted = { ...emptyMetadata, title: 'Daily\nlife\r\nin Rome' };
+
+    expect(
+      decodeWorksheet(encodeWorksheet({ metadata: pasted, blocks: [] }))
+        .metadata.title,
+    ).toBe('Daily life in Rome');
+  });
+
+  it('reads Metadata in any order and treats empty elements as absent', () => {
+    expect(decodeWorksheet(zipXml(partialMetadata)).metadata).toEqual({
+      ...emptyMetadata,
+      gradeLevel: '5/6',
+      topic: 'Fractions',
+    });
+    expect(
+      decodeWorksheet(withMetadata('<subject/><title></title>')).metadata,
+    ).toEqual(emptyMetadata);
+  });
+
+  it.each([
+    ['invalid/duplicate-metadata-element.xml', duplicateMetadata],
+    ['invalid/metadata-after-blocks.xml', metadataAfterBlocks],
+  ])('rejects %s', (_, contents) => {
+    expect(() => decodeWorksheet(zipXml(contents))).toThrow();
+  });
+
+  it.each([
+    ['a line break', '<title>one\ntwo</title>'],
+    ['an unknown element', '<author>Me</author>'],
+    ['a field twice, once empty', '<grade/><grade>7</grade>'],
+    ['an element inside a field', '<title><b>x</b></title>'],
+    ['a field in another namespace', '<title xmlns="urn:x">x</title>'],
+    ['text between fields', '<title>x</title>stray'],
+  ])('rejects Metadata with %s', (_, metadataXml) => {
+    expect(() => decodeWorksheet(withMetadata(metadataXml))).toThrow();
+  });
+
+  it('writes Metadata that validates against the schema', async () => {
+    const xml = worksheetXml(encodeWorksheet({ metadata, blocks: mixed }));
+
+    const result = await validateXML({
+      xml: { fileName: 'worksheet.xml', contents: xml },
+      schema: { fileName: 'worksheet-1.0.xsd', contents: schema },
+    });
+
+    expect(result.errors).toEqual([]);
   });
 });
