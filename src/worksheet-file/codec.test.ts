@@ -15,6 +15,7 @@ import {
   MEDIA_TYPE,
   decodeWorksheet,
   encodeWorksheet,
+  readWorksheet,
   type StoredBlock,
 } from './codec';
 
@@ -405,5 +406,100 @@ describe('Worksheet Metadata in Worksheet Files', () => {
     });
 
     expect(result.errors).toEqual([]);
+  });
+});
+
+describe('rejecting invalid Worksheet Files', () => {
+  const NS = 'https://hahne.software/ns/teachingpaper/worksheet';
+  const sheet = (attrs: string, body = '<blocks/>') =>
+    zipXml(`<worksheet xmlns="${NS}" ${attrs}>${body}</worksheet>`);
+  const reasonOf = (bytes: Uint8Array) => {
+    const result = readWorksheet(bytes);
+    if (result.ok) throw new Error('expected a rejection');
+    return result.reason;
+  };
+
+  it.each([
+    ['not a ZIP', strToU8('hello'), 'not a ZIP'],
+    [
+      'a wrong mimetype',
+      zipSync({ mimetype: strToU8('text/plain') }),
+      'mimetype',
+    ],
+    [
+      'a missing worksheet.xml',
+      zipSync({ mimetype: strToU8(MEDIA_TYPE) }),
+      'worksheet.xml is missing',
+    ],
+    ['malformed XML', zipXml('<worksheet'), 'not well-formed'],
+    [
+      'a document type declaration',
+      zipXml('<!DOCTYPE worksheet []><worksheet/>'),
+      'document type declaration',
+    ],
+    [
+      'a wrong root element',
+      zipXml(`<sheet xmlns="${NS}"/>`),
+      'not a worksheet',
+    ],
+    [
+      'a wrong namespace',
+      zipXml('<worksheet version="1.0"/>'),
+      'not a worksheet',
+    ],
+    ['a missing version', sheet(''), 'missing or malformed'],
+    ['a malformed version', sheet('version="1.x"'), 'missing or malformed'],
+    [
+      'a different MAJOR version',
+      sheet('version="2.0"'),
+      'newer TeachingPaper',
+    ],
+    [
+      'an unknown Block Type',
+      sheet('version="1.0"', '<blocks><video/></blocks>'),
+      'unknown Block Type "video"',
+    ],
+    [
+      'a Heading Level out of range',
+      sheet('version="1.0"', '<blocks><heading level="4"/></blocks>'),
+      'Heading Level',
+    ],
+    [
+      'a raw line break in a Paragraph',
+      sheet(
+        'version="1.0"',
+        '<blocks><body-text><p>a\nb</p></body-text></blocks>',
+      ),
+      'raw line break',
+    ],
+    [
+      'a raw line break in a Heading',
+      sheet(
+        'version="1.0"',
+        '<blocks><heading level="1">a\nb</heading></blocks>',
+      ),
+      'Heading contains a raw line break',
+    ],
+  ])('rejects %s with an understandable reason', (_, bytes, reason) => {
+    expect(reasonOf(bytes)).toContain(reason);
+  });
+
+  it('rejects every invalid example, zipped', () => {
+    const invalid = Object.values(
+      import.meta.glob<string>('../../docs/format/examples/invalid/*.xml', {
+        query: '?raw',
+        import: 'default',
+        eager: true,
+      }),
+    );
+    expect(invalid.length).toBeGreaterThan(0);
+    invalid.forEach((xml) => expect(readWorksheet(zipXml(xml)).ok).toBe(false));
+  });
+
+  it('reads a valid file as a result', () => {
+    expect(readWorksheet(encodeBlocks(headings))).toEqual({
+      ok: true,
+      worksheet: { metadata: emptyMetadata, blocks: headings },
+    });
   });
 });

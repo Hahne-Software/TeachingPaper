@@ -271,4 +271,59 @@ describe('Worksheet File commands', () => {
     expect(await act(fake.requestClose)).toBe(true);
     expect(fake.questions).toEqual([]);
   });
+
+  describe('failures', () => {
+    it('a rejected Open shows the reason and leaves Worksheet, file and title unchanged', async () => {
+      const { fake, menu } = renderApp();
+      await addHeading('Rome');
+      fake.answerSave('rome.tpsheet');
+      await menu('file-save');
+      fake.files.set('notes.txt', new TextEncoder().encode('hello'));
+      fake.answerOpen('notes.txt');
+
+      await menu('open-file');
+
+      expect(fake.errors).toEqual([
+        'Could not open notes.txt. It is not a Worksheet File (not a ZIP archive).',
+      ]);
+      expect(headings()).toEqual(['Rome']);
+      expect(lastTitle(fake)).toBe('rome.tpsheet — TeachingPaper');
+      await menu('file-save');
+      expect(fake.writes).toEqual(['rome.tpsheet', 'rome.tpsheet']);
+    });
+
+    it('an unreadable file is reported too', async () => {
+      const { fake, menu } = renderApp();
+      fake.answerOpen('missing.tpsheet');
+
+      await menu('open-file');
+
+      expect(fake.errors).toEqual([
+        'Could not open missing.tpsheet. no such file: missing.tpsheet',
+      ]);
+    });
+
+    it('a failed write shows an error and the Worksheet stays unsaved', async () => {
+      const { fake, menu } = renderApp();
+      await addHeading('Rome');
+      fake.answerSave('rome.tpsheet');
+      fake.failNextWrite('disk full');
+
+      await menu('file-save');
+
+      expect(fake.errors).toEqual(['Could not save rome.tpsheet. disk full']);
+      expect(lastTitle(fake)).toBe('• Untitled — TeachingPaper');
+    });
+
+    it('closing the window stays open when the save fails', async () => {
+      const { fake } = renderApp();
+      await addHeading('Rome');
+      fake.answerQuestion('save');
+      fake.answerSave('rome.tpsheet');
+      fake.failNextWrite('disk full');
+
+      expect(await act(fake.requestClose)).toBe(false);
+      expect(fake.errors).toHaveLength(1);
+    });
+  });
 });

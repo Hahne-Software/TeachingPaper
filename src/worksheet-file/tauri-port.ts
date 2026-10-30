@@ -70,6 +70,9 @@ export const createTauriPort = (): FilePort => ({
         },
       ),
     ),
+  showError: async (title, text) => {
+    await message(text, { title, kind: 'error' });
+  },
   onCloseRequested: (guard) => {
     // Tauri destroys the window after the handler unless it prevented that.
     const unlisten = getCurrentWindow().onCloseRequested(async (event) => {
