@@ -46,7 +46,7 @@ export const initialState: WorksheetState = {
   nextId: 1,
 };
 
-/** Whether the content changed since it was last saved, opened or started; selection does not count. */
+/** Whether the Worksheet has Unsaved Changes; selection does not count. */
 export const hasUnsavedChanges = ({
   metadata,
   blocks,

@@ -8,7 +8,10 @@ import type { FilePort, FileRef } from './port';
 export const APP_NAME = 'TeachingPaper';
 export const DEFAULT_FILE_NAME = 'Worksheet.tpsheet';
 export const UNTITLED = 'Untitled';
-const UNSAVED_MARKER = '• ';
+
+/** The window title: the file name, or Untitled before the first save, marked while there are Unsaved Changes. */
+export const windowTitle = (fileName: string | null, unsaved: boolean) =>
+  `${unsaved ? '• ' : ''}${fileName ?? UNTITLED} — ${APP_NAME}`;
 
 export type MenuEvents = (handler: (id: string) => void) => () => void;
 
@@ -27,9 +30,9 @@ const shortcutCommand = (event: KeyboardEvent) => {
 };
 
 /**
- * Save, Save As and Open for the Worksheet in the surrounding provider. Renders nothing; it
- * remembers the current file, keeps the window title in step and listens for menu events and
- * keyboard shortcuts.
+ * New, Open, Save and Save As for the Worksheet in the surrounding provider. Renders nothing; it
+ * remembers the current file, keeps the window title in step, asks about Unsaved Changes before
+ * they would be lost and listens for menu events and keyboard shortcuts.
  */
 export function FileCommands({
   port,
@@ -45,11 +48,8 @@ export function FileCommands({
     latest.current = { state, file };
   });
 
-  const changed = hasUnsavedChanges(state);
-  useEffect(() => {
-    const marker = changed ? UNSAVED_MARKER : '';
-    port.setWindowTitle(`${marker}${file?.name ?? UNTITLED} — ${APP_NAME}`);
-  }, [port, file, changed]);
+  const title = windowTitle(file?.name ?? null, hasUnsavedChanges(state));
+  useEffect(() => port.setWindowTitle(title), [port, title]);
 
   /** Each resolves true when the Worksheet ended up in a file, false when a dialog was cancelled. */
   const writeTo = useCallback(
@@ -62,7 +62,7 @@ export function FileCommands({
           blocks: blocks.map(({ type, data }) => ({ type, data })),
         }),
       );
-      // Edits made while writing stay unsaved: only the written content counts as saved.
+      // Edits made while writing stay Unsaved Changes: only the written content counts as saved.
       dispatch({ type: 'saved', content: { metadata, blocks } });
       setFile(target);
       return true;
@@ -82,7 +82,7 @@ export function FileCommands({
     return current ? writeTo(current) : saveAs();
   }, [saveAs, writeTo]);
 
-  /** Resolves true when nothing unsaved is left to lose: none, saved, or discarded on purpose. */
+  /** Resolves true when no Unsaved Changes are left to lose: none, saved, or discarded on purpose. */
   const settleChanges = useCallback(async () => {
     const { state: current, file: currentFile } = latest.current;
     if (!hasUnsavedChanges(current)) return true;

@@ -197,7 +197,7 @@ describe('Tauri FilePort', () => {
       return { event, guard, remove, unlisten };
     };
 
-    it('lets the window close when nothing is unsaved', async () => {
+    it('lets the window close when there are no Unsaved Changes', async () => {
       const { event, guard } = await closeWith(false, false);
       expect(guard.mayClose).not.toHaveBeenCalled();
       expect(event.preventDefault).not.toHaveBeenCalled();

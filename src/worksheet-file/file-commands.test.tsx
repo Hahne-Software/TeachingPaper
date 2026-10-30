@@ -139,7 +139,7 @@ describe('Worksheet File commands', () => {
     );
   });
 
-  it('marks unsaved changes in the window title until the Worksheet is saved', async () => {
+  it('marks Unsaved Changes in the window title until the Worksheet is saved', async () => {
     const { fake, menu } = setup();
     await addHeading('Rome');
     expect(lastTitle(fake)).toBe('• Untitled — TeachingPaper');
@@ -170,7 +170,7 @@ describe('Worksheet File commands', () => {
     expect(lastTitle(fake)).toBe('rome.tpsheet — TeachingPaper');
   });
 
-  it('New starts an empty, untitled Worksheet without asking when nothing is unsaved', async () => {
+  it('New starts an empty Untitled Worksheet without asking when there are no Unsaved Changes', async () => {
     const { fake, menu } = setup();
     await addHeading('Rome');
     fake.answerSave('rome.tpsheet');
@@ -183,7 +183,7 @@ describe('Worksheet File commands', () => {
     expect(fake.questions).toEqual([]);
   });
 
-  describe('with unsaved changes', () => {
+  describe('with Unsaved Changes', () => {
     const romeFile = () =>
       encodeWorksheet({
         metadata: emptyMetadata,
@@ -290,7 +290,7 @@ describe('Worksheet File commands', () => {
     );
   });
 
-  it('closes the window without asking when nothing is unsaved', async () => {
+  it('closes the window without asking when there are no Unsaved Changes', async () => {
     const { fake } = setup();
     expect(await act(fake.requestClose)).toBe(true);
     expect(fake.questions).toEqual([]);
