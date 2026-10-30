@@ -32,12 +32,13 @@ const SAVE = 'Save';
 const DONT_SAVE = "Don't Save";
 
 // Custom buttons answer with their label; the default names are accepted as well.
-const answerFor = (button: string): SaveChangesAnswer =>
-  button === SAVE || button === 'Yes'
-    ? 'save'
-    : button === DONT_SAVE || button === 'No'
-      ? 'discard'
-      : 'cancel';
+const answers: Record<string, SaveChangesAnswer> = {
+  [SAVE]: 'save',
+  Yes: 'save',
+  [DONT_SAVE]: 'discard',
+  No: 'discard',
+};
+const answerFor = (button: string) => answers[button] ?? 'cancel';
 
 /** FilePort for the desktop app: native dialogs, plugin-fs for reading, an own atomic write command. */
 export const createTauriPort = (): FilePort => ({
