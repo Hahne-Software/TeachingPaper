@@ -1,25 +1,9 @@
 // @vitest-environment jsdom
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import App from '../App';
+import { renderApp } from '../test/render-app';
 import { decodeWorksheet } from '../worksheet-file/codec';
-import { createFakePort } from '../worksheet-file/fake-port';
-import type { MenuEvents } from '../worksheet-file/file-commands';
-
-function setup() {
-  const { port, fake } = createFakePort();
-  const handlers = new Set<(id: string) => void>();
-  const menuEvents: MenuEvents = (handler) => {
-    handlers.add(handler);
-    return () => void handlers.delete(handler);
-  };
-  render(<App filePort={port} menuEvents={menuEvents} />);
-  return {
-    fake,
-    menu: (id: string) => act(async () => handlers.forEach((h) => h(id))),
-  };
-}
 
 const fieldNames = ['Title', 'Grade Level', 'Subject', 'Topic'];
 const field = (name: string) => screen.getByRole('textbox', { name });
@@ -30,13 +14,13 @@ const deselect = () =>
 
 describe('Worksheet Metadata in the Properties Panel', () => {
   it('shows Title, Grade Level, Subject and Topic when no Block is selected', () => {
-    setup();
+    renderApp();
 
     fieldNames.forEach((name) => expect(field(name)).toHaveValue(''));
   });
 
   it('shows the selected Block’s settings instead, and the Metadata again after deselecting', async () => {
-    setup();
+    renderApp();
     await userEvent.type(field('Title'), 'Ancient Rome');
 
     await userEvent.click(screen.getByRole('button', { name: 'Heading' }));
@@ -50,7 +34,7 @@ describe('Worksheet Metadata in the Properties Panel', () => {
   });
 
   it('turns pasted line breaks into spaces', async () => {
-    setup();
+    renderApp();
     await userEvent.type(field('Topic'), 'Rome ');
 
     await userEvent.paste('Forum\r\nand\nbaths');
@@ -59,7 +43,7 @@ describe('Worksheet Metadata in the Properties Panel', () => {
   });
 
   it('pastes over the selection and leaves the caret after the pasted text', async () => {
-    setup();
+    renderApp();
     await userEvent.type(field('Title'), 'Daily XXX in Rome');
     const title = field('Title') as HTMLInputElement;
     title.setSelectionRange(6, 9);
@@ -71,7 +55,7 @@ describe('Worksheet Metadata in the Properties Panel', () => {
   });
 
   it('saves the Metadata and restores it on Open', async () => {
-    const { fake, menu } = setup();
+    const { fake, menu } = renderApp();
     await userEvent.type(field('Title'), 'Daily life');
     await userEvent.type(field('Grade Level'), '7/8');
     await userEvent.type(field('Subject'), 'History');

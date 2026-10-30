@@ -1,7 +1,7 @@
 // Drives the app in WebKitGTK (the Tauri engine) through WebKitWebDriver. Needs only the repo's own fflate.
 // Usage: pnpm verify:ui <steps-file.mjs> <out-dir>
 // Starts `pnpm dev` when :1420 is free and stops it afterwards; a server that was already running stays up.
-// The steps file default-exports `async ({ exec, key, chord, paste, click, drag, drop, shot, sleep, files }) => {}`.
+// The steps file default-exports `async ({ exec, key, chord, paste, click, drag, drop, shot, sleep, files, dialogs }) => {}`.
 // `click` hits the first match only; reach any other element with `exec` (e.g. `document.querySelectorAll(sel)[1].click()`).
 import { strFromU8, unzipSync } from 'fflate';
 import { spawn } from 'node:child_process';
@@ -172,6 +172,25 @@ try {
         const bytes = await helpers.files.saved();
         return bytes ? strFromU8(unzipSync(bytes)['worksheet.xml']) : null;
       },
+    },
+    /**
+     * Stands in for `window.confirm` and `window.alert`, which block WebDriver. Call `dialogs.stub()`
+     * after every page load; then `dialogs.answer(true, false)` queues the next confirm answers
+     * (an empty queue answers false), and `dialogs.asked()` returns every message shown so far.
+     */
+    dialogs: {
+      stub: () =>
+        helpers.exec(`
+          window.__asked = [];
+          window.__answers = [];
+          window.confirm = (message) => {
+            window.__asked.push(message);
+            return window.__answers.shift() ?? false;
+          };
+          window.alert = (message) => void window.__asked.push(message);`),
+      answer: (...answers) =>
+        helpers.exec('window.__answers.push(...arguments[0])', [answers]),
+      asked: () => helpers.exec('return window.__asked'),
     },
     /** Real click on the first element matching the CSS selector. */
     click: async (selector) => {

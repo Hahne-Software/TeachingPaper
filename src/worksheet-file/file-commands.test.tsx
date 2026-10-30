@@ -1,34 +1,10 @@
 // @vitest-environment jsdom
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import App from '../App';
+import { renderApp } from '../test/render-app';
 import { emptyMetadata } from '../worksheet/metadata';
 import { encodeWorksheet } from './codec';
-import { createFakePort } from './fake-port';
-import type { MenuEvents } from './file-commands';
-
-function setup() {
-  const { port, fake } = createFakePort();
-  const handlers = new Set<(id: string) => void>();
-  const menuEvents: MenuEvents = (handler) => {
-    handlers.add(handler);
-    return () => void handlers.delete(handler);
-  };
-  render(<App filePort={port} menuEvents={menuEvents} />);
-  return {
-    fake,
-    menu: (id: string) => act(async () => handlers.forEach((h) => h(id))),
-    key: (key: string, modifiers = '') =>
-      userEvent.keyboard(`{Control>}${modifiers}${key}{/Control}`),
-  };
-}
 
 const addHeading = async (text: string) => {
   await userEvent.click(screen.getByRole('button', { name: 'Heading' }));
@@ -44,7 +20,7 @@ const lastTitle = (fake: { titles: string[] }) =>
 
 describe('Worksheet File commands', () => {
   it('asks for a location on the first Save, then rewrites the same file silently', async () => {
-    const { fake, menu } = setup();
+    const { fake, menu } = renderApp();
     await addHeading('Rome');
     fake.answerSave('rome.tpsheet');
 
@@ -56,7 +32,7 @@ describe('Worksheet File commands', () => {
   });
 
   it('saves a Worksheet that opens again unchanged', async () => {
-    const { fake, menu } = setup();
+    const { fake, menu } = renderApp();
     await addHeading('Rome');
     fake.answerSave('rome.tpsheet');
     await menu('file-save');
@@ -73,7 +49,7 @@ describe('Worksheet File commands', () => {
   });
 
   it('Save As always asks and switches to the new file', async () => {
-    const { fake, menu } = setup();
+    const { fake, menu } = renderApp();
     await addHeading('Rome');
     fake.answerSave('a.tpsheet');
     await menu('file-save');
@@ -87,7 +63,7 @@ describe('Worksheet File commands', () => {
   });
 
   it('changes nothing when a dialog is cancelled', async () => {
-    const { fake, menu } = setup();
+    const { fake, menu } = renderApp();
     await addHeading('Rome');
 
     fake.answerSave(null);
@@ -101,7 +77,7 @@ describe('Worksheet File commands', () => {
   });
 
   it('works through Ctrl+S, Ctrl+Shift+S and Ctrl+O', async () => {
-    const { fake, key } = setup();
+    const { fake, key } = renderApp();
     fake.files.set(
       'x.tpsheet',
       encodeWorksheet({
@@ -124,7 +100,7 @@ describe('Worksheet File commands', () => {
   });
 
   it('shows the current file name in the window title', async () => {
-    const { fake, menu } = setup();
+    const { fake, menu } = renderApp();
     expect(lastTitle(fake)).toBe('Untitled — TeachingPaper');
     fake.files.set(
       'x.tpsheet',
@@ -140,7 +116,7 @@ describe('Worksheet File commands', () => {
   });
 
   it('marks Unsaved Changes in the window title until the Worksheet is saved', async () => {
-    const { fake, menu } = setup();
+    const { fake, menu } = renderApp();
     await addHeading('Rome');
     expect(lastTitle(fake)).toBe('• Untitled — TeachingPaper');
 
@@ -153,13 +129,13 @@ describe('Worksheet File commands', () => {
   });
 
   it('counts editing the Worksheet Metadata as a change', async () => {
-    const { fake } = setup();
+    const { fake } = renderApp();
     await userEvent.type(screen.getByRole('textbox', { name: 'Subject' }), 'H');
     expect(lastTitle(fake)).toBe('• Untitled — TeachingPaper');
   });
 
   it('does not count selecting a Block as a change', async () => {
-    const { fake, menu } = setup();
+    const { fake, menu } = renderApp();
     await addHeading('Rome');
     fake.answerSave('rome.tpsheet');
     await menu('file-save');
@@ -171,7 +147,7 @@ describe('Worksheet File commands', () => {
   });
 
   it('New starts an empty Untitled Worksheet without asking when there are no Unsaved Changes', async () => {
-    const { fake, menu } = setup();
+    const { fake, menu } = renderApp();
     await addHeading('Rome');
     fake.answerSave('rome.tpsheet');
     await menu('file-save');
@@ -191,7 +167,7 @@ describe('Worksheet File commands', () => {
       });
 
     it("New asks about them and, on Don't Save, starts an empty Worksheet", async () => {
-      const { fake, key } = setup();
+      const { fake, key } = renderApp();
       await addHeading('Rome');
       fake.answerQuestion('discard');
 
@@ -204,7 +180,7 @@ describe('Worksheet File commands', () => {
     });
 
     it('New on Save saves them first', async () => {
-      const { fake, menu } = setup();
+      const { fake, menu } = renderApp();
       await addHeading('Rome');
       fake.answerQuestion('save');
       fake.answerSave('rome.tpsheet');
@@ -217,7 +193,7 @@ describe('Worksheet File commands', () => {
     });
 
     it('New on Cancel keeps everything', async () => {
-      const { fake, menu } = setup();
+      const { fake, menu } = renderApp();
       await addHeading('Rome');
       fake.answerQuestion('cancel');
 
@@ -228,7 +204,7 @@ describe('Worksheet File commands', () => {
     });
 
     it('New on Save keeps everything when the save dialog is cancelled', async () => {
-      const { fake, menu } = setup();
+      const { fake, menu } = renderApp();
       await addHeading('Rome');
       fake.answerQuestion('save');
       fake.answerSave(null);
@@ -242,7 +218,7 @@ describe('Worksheet File commands', () => {
     });
 
     it('Open asks about them, names the current file and on Save rewrites it first', async () => {
-      const { fake, menu } = setup();
+      const { fake, menu } = renderApp();
       fake.files.set('x.tpsheet', romeFile());
       await addHeading('Carthage');
       fake.answerSave('carthage.tpsheet');
@@ -260,7 +236,7 @@ describe('Worksheet File commands', () => {
     });
 
     it('Open on Cancel does not even show the open dialog', async () => {
-      const { fake, menu } = setup();
+      const { fake, menu } = renderApp();
       await addHeading('Rome');
       fake.answerQuestion('cancel');
 
@@ -278,7 +254,7 @@ describe('Worksheet File commands', () => {
     ] as const)(
       'closing the window on %s (save dialog: %s) closes: %s',
       async (answer, saveAs, closes, writes) => {
-        const { fake } = setup();
+        const { fake } = renderApp();
         await addHeading('Rome');
         fake.answerQuestion(answer);
         fake.answerSave(saveAs);
@@ -291,7 +267,7 @@ describe('Worksheet File commands', () => {
   });
 
   it('closes the window without asking when there are no Unsaved Changes', async () => {
-    const { fake } = setup();
+    const { fake } = renderApp();
     expect(await act(fake.requestClose)).toBe(true);
     expect(fake.questions).toEqual([]);
   });
