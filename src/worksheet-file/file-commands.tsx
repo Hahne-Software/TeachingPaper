@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useWorksheet } from '../worksheet/context';
+import { emptyMetadata } from '../worksheet/metadata';
+import { hasUnsavedChanges } from '../worksheet/reducer';
 import { decodeWorksheet, encodeWorksheet } from './codec';
 import type { FilePort, FileRef } from './port';
 
 export const APP_NAME = 'TeachingPaper';
 export const DEFAULT_FILE_NAME = 'Worksheet.tpsheet';
+export const UNTITLED = 'Untitled';
+const UNSAVED_MARKER = '• ';
 
 export type MenuEvents = (handler: (id: string) => void) => () => void;
 
@@ -15,6 +19,8 @@ const shortcutCommand = (event: KeyboardEvent) => {
       return event.shiftKey ? 'file-save-as' : 'file-save';
     case 'o':
       return event.shiftKey ? null : 'open-file';
+    case 'n':
+      return event.shiftKey ? null : 'file-new';
     default:
       return null;
   }
@@ -39,10 +45,13 @@ export function FileCommands({
     latest.current = { state, file };
   });
 
+  const changed = hasUnsavedChanges(state);
   useEffect(() => {
-    port.setWindowTitle(file ? `${file.name} — ${APP_NAME}` : APP_NAME);
-  }, [port, file]);
+    const marker = changed ? UNSAVED_MARKER : '';
+    port.setWindowTitle(`${marker}${file?.name ?? UNTITLED} — ${APP_NAME}`);
+  }, [port, file, changed]);
 
+  /** Each resolves true when the Worksheet ended up in a file, false when a dialog was cancelled. */
   const writeTo = useCallback(
     async (target: FileRef) => {
       const { metadata, blocks } = latest.current.state;
@@ -53,48 +62,72 @@ export function FileCommands({
           blocks: blocks.map(({ type, data }) => ({ type, data })),
         }),
       );
+      // Edits made while writing stay unsaved: only the written content counts as saved.
+      dispatch({ type: 'saved', content: { metadata, blocks } });
       setFile(target);
+      return true;
     },
-    [port],
+    [port, dispatch],
   );
 
   const saveAs = useCallback(async () => {
     const target = await port.showSaveDialog(
       latest.current.file?.name ?? DEFAULT_FILE_NAME,
     );
-    if (target) await writeTo(target);
+    return target ? writeTo(target) : false;
   }, [port, writeTo]);
 
   const save = useCallback(async () => {
     const { file: current } = latest.current;
-    if (current) await writeTo(current);
-    else await saveAs();
+    return current ? writeTo(current) : saveAs();
   }, [saveAs, writeTo]);
 
+  /** Resolves true when nothing unsaved is left to lose: none, saved, or discarded on purpose. */
+  const settleChanges = useCallback(async () => {
+    const { state: current, file: currentFile } = latest.current;
+    if (!hasUnsavedChanges(current)) return true;
+    const answer = await port.askToSaveChanges(currentFile?.name ?? UNTITLED);
+    return answer === 'save' ? save() : answer === 'discard';
+  }, [port, save]);
+
   const open = useCallback(async () => {
+    if (!(await settleChanges())) return;
     const chosen = await port.showOpenDialog();
     if (!chosen) return;
     const worksheet = decodeWorksheet(await port.readBytes(chosen));
     dispatch({ type: 'replace', ...worksheet });
     setFile(chosen);
-  }, [port, dispatch]);
+  }, [port, dispatch, settleChanges]);
+
+  const startNew = useCallback(async () => {
+    if (!(await settleChanges())) return;
+    dispatch({ type: 'replace', metadata: emptyMetadata, blocks: [] });
+    setFile(null);
+  }, [dispatch, settleChanges]);
 
   const run = useCallback(
     (command: string) => {
-      const action =
-        command === 'file-save'
-          ? save
-          : command === 'file-save-as'
-            ? saveAs
-            : command === 'open-file'
-              ? open
-              : null;
-      action?.().catch((error) => console.error(error));
+      const commands: Record<string, () => Promise<unknown>> = {
+        'file-new': startNew,
+        'open-file': open,
+        'file-save': save,
+        'file-save-as': saveAs,
+      };
+      commands[command]?.().catch((error) => console.error(error));
     },
-    [save, saveAs, open],
+    [save, saveAs, open, startNew],
   );
 
   useEffect(() => menuEvents(run), [menuEvents, run]);
+
+  useEffect(
+    () =>
+      port.onCloseRequested({
+        hasUnsavedChanges: () => hasUnsavedChanges(latest.current.state),
+        mayClose: settleChanges,
+      }),
+    [port, settleChanges],
+  );
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

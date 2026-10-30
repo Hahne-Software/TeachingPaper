@@ -65,6 +65,7 @@ describe('Worksheet File commands', () => {
     );
     expect(headings()).toEqual([]);
 
+    fake.answerQuestion('discard');
     fake.answerOpen('rome.tpsheet');
     await menu('open-file');
 
@@ -96,7 +97,7 @@ describe('Worksheet File commands', () => {
 
     expect(fake.writes).toEqual([]);
     expect(headings()).toEqual(['Rome']);
-    expect(lastTitle(fake)).toBe('TeachingPaper');
+    expect(lastTitle(fake)).toBe('• Untitled — TeachingPaper');
   });
 
   it('works through Ctrl+S, Ctrl+Shift+S and Ctrl+O', async () => {
@@ -124,7 +125,7 @@ describe('Worksheet File commands', () => {
 
   it('shows the current file name in the window title', async () => {
     const { fake, menu } = setup();
-    expect(lastTitle(fake)).toBe('TeachingPaper');
+    expect(lastTitle(fake)).toBe('Untitled — TeachingPaper');
     fake.files.set(
       'x.tpsheet',
       encodeWorksheet({ metadata: emptyMetadata, blocks: [] }),
@@ -136,5 +137,162 @@ describe('Worksheet File commands', () => {
     await waitFor(() =>
       expect(lastTitle(fake)).toBe('x.tpsheet — TeachingPaper'),
     );
+  });
+
+  it('marks unsaved changes in the window title until the Worksheet is saved', async () => {
+    const { fake, menu } = setup();
+    await addHeading('Rome');
+    expect(lastTitle(fake)).toBe('• Untitled — TeachingPaper');
+
+    fake.answerSave('rome.tpsheet');
+    await menu('file-save');
+    expect(lastTitle(fake)).toBe('rome.tpsheet — TeachingPaper');
+
+    await addHeading('Carthage');
+    expect(lastTitle(fake)).toBe('• rome.tpsheet — TeachingPaper');
+  });
+
+  it('counts editing the Worksheet Metadata as a change', async () => {
+    const { fake } = setup();
+    await userEvent.type(screen.getByRole('textbox', { name: 'Subject' }), 'H');
+    expect(lastTitle(fake)).toBe('• Untitled — TeachingPaper');
+  });
+
+  it('does not count selecting a Block as a change', async () => {
+    const { fake, menu } = setup();
+    await addHeading('Rome');
+    fake.answerSave('rome.tpsheet');
+    await menu('file-save');
+
+    await userEvent.click(document.querySelector<HTMLElement>('.heading')!);
+    await userEvent.click(document.querySelector<HTMLElement>('.page')!);
+
+    expect(lastTitle(fake)).toBe('rome.tpsheet — TeachingPaper');
+  });
+
+  it('New starts an empty, untitled Worksheet without asking when nothing is unsaved', async () => {
+    const { fake, menu } = setup();
+    await addHeading('Rome');
+    fake.answerSave('rome.tpsheet');
+    await menu('file-save');
+
+    await menu('file-new');
+
+    expect(headings()).toEqual([]);
+    expect(lastTitle(fake)).toBe('Untitled — TeachingPaper');
+    expect(fake.questions).toEqual([]);
+  });
+
+  describe('with unsaved changes', () => {
+    const romeFile = () =>
+      encodeWorksheet({
+        metadata: emptyMetadata,
+        blocks: [{ type: 'heading', data: { text: 'Rome', level: 1 } }],
+      });
+
+    it("New asks about them and, on Don't Save, starts an empty Worksheet", async () => {
+      const { fake, key } = setup();
+      await addHeading('Rome');
+      fake.answerQuestion('discard');
+
+      await key('n');
+
+      await waitFor(() => expect(headings()).toEqual([]));
+      expect(fake.questions).toEqual(['Untitled']);
+      expect(fake.writes).toEqual([]);
+      expect(lastTitle(fake)).toBe('Untitled — TeachingPaper');
+    });
+
+    it('New on Save saves them first', async () => {
+      const { fake, menu } = setup();
+      await addHeading('Rome');
+      fake.answerQuestion('save');
+      fake.answerSave('rome.tpsheet');
+
+      await menu('file-new');
+
+      expect(fake.writes).toEqual(['rome.tpsheet']);
+      expect(headings()).toEqual([]);
+      expect(lastTitle(fake)).toBe('Untitled — TeachingPaper');
+    });
+
+    it('New on Cancel keeps everything', async () => {
+      const { fake, menu } = setup();
+      await addHeading('Rome');
+      fake.answerQuestion('cancel');
+
+      await menu('file-new');
+
+      expect(headings()).toEqual(['Rome']);
+      expect(lastTitle(fake)).toBe('• Untitled — TeachingPaper');
+    });
+
+    it('New on Save keeps everything when the save dialog is cancelled', async () => {
+      const { fake, menu } = setup();
+      await addHeading('Rome');
+      fake.answerQuestion('save');
+      fake.answerSave(null);
+
+      await menu('file-new');
+
+      expect(fake.saveDialogs).toBe(1);
+      expect(fake.writes).toEqual([]);
+      expect(headings()).toEqual(['Rome']);
+      expect(lastTitle(fake)).toBe('• Untitled — TeachingPaper');
+    });
+
+    it('Open asks about them, names the current file and on Save rewrites it first', async () => {
+      const { fake, menu } = setup();
+      fake.files.set('x.tpsheet', romeFile());
+      await addHeading('Carthage');
+      fake.answerSave('carthage.tpsheet');
+      await menu('file-save');
+      await addHeading('Utica');
+      fake.answerQuestion('save');
+      fake.answerOpen('x.tpsheet');
+
+      await menu('open-file');
+
+      await waitFor(() => expect(headings()).toEqual(['Rome']));
+      expect(fake.questions).toEqual(['carthage.tpsheet']);
+      expect(fake.writes).toEqual(['carthage.tpsheet', 'carthage.tpsheet']);
+      expect(fake.saveDialogs).toBe(1);
+    });
+
+    it('Open on Cancel does not even show the open dialog', async () => {
+      const { fake, menu } = setup();
+      await addHeading('Rome');
+      fake.answerQuestion('cancel');
+
+      await menu('open-file');
+
+      expect(fake.openDialogs).toBe(0);
+      expect(headings()).toEqual(['Rome']);
+    });
+
+    it.each([
+      ['save', 'rome.tpsheet', true, ['rome.tpsheet']],
+      ['discard', null, true, []],
+      ['cancel', null, false, []],
+      ['save', null, false, []],
+    ] as const)(
+      'closing the window on %s (save dialog: %s) closes: %s',
+      async (answer, saveAs, closes, writes) => {
+        const { fake } = setup();
+        await addHeading('Rome');
+        fake.answerQuestion(answer);
+        fake.answerSave(saveAs);
+
+        expect(await act(fake.requestClose)).toBe(closes);
+        expect(fake.questions).toEqual(['Untitled']);
+        expect(fake.writes).toEqual(writes);
+      },
+    );
+  });
+
+  it('closes the window without asking when nothing is unsaved', async () => {
+    const { fake } = setup();
+    expect(await act(fake.requestClose)).toBe(true);
+    expect(fake.questions).toEqual([]);
   });
 });

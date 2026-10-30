@@ -6,18 +6,24 @@ const tauri = vi.hoisted(() => ({
   readFile: vi.fn(),
   invoke: vi.fn(),
   confirm: vi.fn(),
+  message: vi.fn(),
   setTitle: vi.fn(),
+  onCloseRequested: vi.fn(),
 }));
 
 vi.mock('@tauri-apps/plugin-dialog', () => ({
   open: tauri.open,
   save: tauri.save,
   confirm: tauri.confirm,
+  message: tauri.message,
 }));
 vi.mock('@tauri-apps/plugin-fs', () => ({ readFile: tauri.readFile }));
 vi.mock('@tauri-apps/api/core', () => ({ invoke: tauri.invoke }));
 vi.mock('@tauri-apps/api/window', () => ({
-  getCurrentWindow: () => ({ setTitle: tauri.setTitle }),
+  getCurrentWindow: () => ({
+    setTitle: tauri.setTitle,
+    onCloseRequested: tauri.onCloseRequested,
+  }),
 }));
 
 import { createTauriPort } from './tauri-port';
@@ -149,5 +155,69 @@ describe('Tauri FilePort', () => {
     tauri.setTitle.mockResolvedValue(undefined);
     createTauriPort().setWindowTitle('Rome.tpsheet — TeachingPaper');
     expect(tauri.setTitle).toHaveBeenCalledWith('Rome.tpsheet — TeachingPaper');
+  });
+
+  describe('asking to save changes', () => {
+    it("shows Save, Don't Save and Cancel buttons naming the Worksheet", async () => {
+      tauri.message.mockResolvedValue('Cancel');
+      await createTauriPort().askToSaveChanges('Rome.tpsheet');
+      const [text, options] = tauri.message.mock.calls[0];
+      expect(text).toContain('Rome.tpsheet');
+      expect(options.buttons).toEqual({
+        yes: 'Save',
+        no: "Don't Save",
+        cancel: 'Cancel',
+      });
+    });
+
+    it.each([
+      ['Save', 'save'],
+      ['Yes', 'save'],
+      ["Don't Save", 'discard'],
+      ['No', 'discard'],
+      ['Cancel', 'cancel'],
+    ])('answers %s with %s', async (button, answer) => {
+      tauri.message.mockResolvedValue(button);
+      expect(await createTauriPort().askToSaveChanges('x')).toBe(answer);
+    });
+  });
+
+  describe('guarding the window close', () => {
+    const closeWith = async (hasUnsavedChanges: boolean, mayClose: boolean) => {
+      const unlisten = vi.fn();
+      tauri.onCloseRequested.mockResolvedValue(unlisten);
+      const guard = {
+        hasUnsavedChanges: () => hasUnsavedChanges,
+        mayClose: vi.fn(async () => mayClose),
+      };
+      const remove = createTauriPort().onCloseRequested(guard);
+      const handler = tauri.onCloseRequested.mock.calls[0][0];
+      const event = { preventDefault: vi.fn() };
+      await handler(event);
+      return { event, guard, remove, unlisten };
+    };
+
+    it('lets the window close when nothing is unsaved', async () => {
+      const { event, guard } = await closeWith(false, false);
+      expect(guard.mayClose).not.toHaveBeenCalled();
+      expect(event.preventDefault).not.toHaveBeenCalled();
+    });
+
+    it('lets the window close when the changes are settled', async () => {
+      const { event } = await closeWith(true, true);
+      expect(event.preventDefault).not.toHaveBeenCalled();
+    });
+
+    it('keeps the window open when settling is cancelled', async () => {
+      const { event } = await closeWith(true, false);
+      expect(event.preventDefault).toHaveBeenCalled();
+    });
+
+    it('stops listening when the guard is removed', async () => {
+      const { remove, unlisten } = await closeWith(false, false);
+      remove();
+      await Promise.resolve();
+      expect(unlisten).toHaveBeenCalled();
+    });
   });
 });

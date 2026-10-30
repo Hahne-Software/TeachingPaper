@@ -54,7 +54,13 @@ pub fn run() {
                 )
                 .separator()
                 .item(&PredefinedMenuItem::close_window(handle, None)?)
-                .item(&PredefinedMenuItem::quit(handle, None)?)
+                // Not the predefined Quit: it exits without a close request, so unsaved
+                // changes would be lost without asking.
+                .item(
+                    &MenuItemBuilder::with_id("app-quit", "Quit")
+                        .accelerator("CmdOrCtrl+Q")
+                        .build(handle)?,
+                )
                 .build()?;
 
             let edit_menu = SubmenuBuilder::new(handle, "Edit")
@@ -94,8 +100,14 @@ pub fn run() {
             Ok(())
         })
         .on_menu_event(|app, event| {
-            // Forward custom menu actions to the frontend.
-            if let Some(window) = app.get_webview_window("main") {
+            let Some(window) = app.get_webview_window("main") else {
+                return;
+            };
+            if event.id() == "app-quit" {
+                // A close request lets the frontend ask about unsaved changes first.
+                let _ = window.close();
+            } else {
+                // Forward custom menu actions to the frontend.
                 let _ = window.emit("menu-event", event.id().0.as_str());
             }
         })
