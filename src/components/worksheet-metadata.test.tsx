@@ -87,6 +87,7 @@ describe('Worksheet Metadata in the Properties Panel', () => {
 
     await userEvent.clear(field('Title'));
     await userEvent.clear(field('Subject'));
+    fake.answerQuestion('discard');
     fake.answerOpen('rome.tpsheet');
     await menu('open-file');
 

@@ -6,9 +6,15 @@ export type Block = {
   data: unknown;
 };
 
-export type WorksheetState = {
+/** The content of a Worksheet, the part a Worksheet File keeps. */
+export type WorksheetContent = {
   metadata: WorksheetMetadata;
   blocks: Block[];
+};
+
+export type WorksheetState = WorksheetContent & {
+  /** The content as it was last saved, opened or started; compared by reference. */
+  saved: WorksheetContent;
   selectedId: string | null;
   nextId: number;
 };
@@ -26,15 +32,26 @@ export type WorksheetAction =
       blocks: { type: string; data: unknown }[];
     }
   | { type: 'updateMetadata'; metadata: Partial<WorksheetMetadata> }
+  /** The given content was written to a Worksheet File. */
+  | { type: 'saved'; content: WorksheetContent }
   | { type: 'select'; id: string }
   | { type: 'deselect' };
 
+const emptyContent: WorksheetContent = { metadata: emptyMetadata, blocks: [] };
+
 export const initialState: WorksheetState = {
-  metadata: emptyMetadata,
-  blocks: [],
+  ...emptyContent,
+  saved: emptyContent,
   selectedId: null,
   nextId: 1,
 };
+
+/** Whether the Worksheet has Unsaved Changes; selection does not count. */
+export const hasUnsavedChanges = ({
+  metadata,
+  blocks,
+  saved,
+}: WorksheetState) => metadata !== saved.metadata || blocks !== saved.blocks;
 
 /** Default data per Block Type id; keeps the reducer free of UI imports. */
 export type BlockDefaults = Record<string, () => unknown>;
@@ -92,16 +109,23 @@ export const createWorksheetReducer =
           blocks: [...rest.slice(0, to), state.blocks[from], ...rest.slice(to)],
         };
       }
-      case 'replace':
-        return {
+      case 'replace': {
+        const content = {
           metadata: action.metadata,
           blocks: action.blocks.map((block, i) => ({
             ...block,
             id: `block-${state.nextId + i}`,
           })),
+        };
+        return {
+          ...content,
+          saved: content,
           selectedId: null,
           nextId: state.nextId + action.blocks.length,
         };
+      }
+      case 'saved':
+        return { ...state, saved: action.content };
       case 'updateMetadata':
         return {
           ...state,

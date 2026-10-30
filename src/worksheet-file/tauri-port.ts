@@ -1,8 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { confirm, open, save } from '@tauri-apps/plugin-dialog';
+import { confirm, message, open, save } from '@tauri-apps/plugin-dialog';
 import { readFile } from '@tauri-apps/plugin-fs';
-import type { FilePort, FileRef } from './port';
+import type { FilePort, FileRef, SaveChangesAnswer } from './port';
 
 const EXTENSION = 'tpsheet';
 const filters = [{ name: 'Worksheet', extensions: [EXTENSION] }];
@@ -28,6 +28,18 @@ const refFor = (path: string): TauriFileRef => ({
   path,
 });
 
+const SAVE = 'Save';
+const DONT_SAVE = "Don't Save";
+
+// Custom buttons answer with their label; the default names are accepted as well.
+const answers: Record<string, SaveChangesAnswer> = {
+  [SAVE]: 'save',
+  Yes: 'save',
+  [DONT_SAVE]: 'discard',
+  No: 'discard',
+};
+const answerFor = (button: string) => answers[button] ?? 'cancel';
+
 /** FilePort for the desktop app: native dialogs, plugin-fs for reading, an own atomic write command. */
 export const createTauriPort = (): FilePort => ({
   showOpenDialog: async () => {
@@ -47,6 +59,27 @@ export const createTauriPort = (): FilePort => ({
     invoke('write_file_atomic', bytes, {
       headers: { path: encodeURIComponent(pathOf(file)) },
     }),
+  askToSaveChanges: async (name) =>
+    answerFor(
+      await message(
+        `Do you want to save the changes to ${name}? Your changes will be lost if you don't save them.`,
+        {
+          title: 'Unsaved Changes',
+          kind: 'warning',
+          buttons: { yes: SAVE, no: DONT_SAVE, cancel: 'Cancel' },
+        },
+      ),
+    ),
+  onCloseRequested: (guard) => {
+    // Tauri destroys the window after the handler unless it prevented that.
+    const unlisten = getCurrentWindow().onCloseRequested(async (event) => {
+      if (guard.hasUnsavedChanges() && !(await guard.mayClose()))
+        event.preventDefault();
+    });
+    return () => {
+      unlisten.then((fn) => fn()).catch((error) => console.error(error));
+    };
+  },
   setWindowTitle: (title) => {
     getCurrentWindow()
       .setTitle(title)

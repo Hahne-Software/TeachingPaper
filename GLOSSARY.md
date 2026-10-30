@@ -51,6 +51,14 @@ _Avoid_: Document, project file
 A Block from a newer Format Version that this app version does not fully understand; it is shown and kept unchanged, but can only be moved or deleted.
 _Avoid_: Unknown block, placeholder
 
+**Untitled Worksheet**:
+A Worksheet that has never been saved as a Worksheet File.
+_Avoid_: New document, unnamed sheet
+
+**Unsaved Changes**:
+Edits to a Worksheet's Blocks or Worksheet Metadata since it was last saved, opened or started; selecting a Block is not an edit.
+_Avoid_: Dirty state, modifications
+
 **Format Version**:
 The version of the Worksheet format (MAJOR.MINOR) a Worksheet File was written in, which determines the rules that apply to it; independent of the app version.
 _Avoid_: Schema version, file version
