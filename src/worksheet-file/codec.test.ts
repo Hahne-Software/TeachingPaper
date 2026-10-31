@@ -583,6 +583,16 @@ describe('newer MINOR Format Versions', () => {
     expect(savedXml(again)).toContain('x:kind="bar"');
   });
 
+  it('keeps our namespace on descendants of a foreign root', () => {
+    const block = `<x:chart xmlns:x="urn:x"><bar xmlns="${NS}"/></x:chart>`;
+    const bytes = zipWith(sheet(block));
+    const { blocks } = decodeWorksheet(roundTrip(bytes));
+    expect(blocks).toEqual(decodeWorksheet(bytes).blocks);
+    expect((blocks[0].data as { xml: string }).xml).toContain(
+      `<bar xmlns="${NS}"/>`,
+    );
+  });
+
   it('keeps unknown Worksheet Metadata next to the known fields', () => {
     const metadata =
       '<metadata><title>T</title><license>CC0</license><tags a="1"><t>x</t></tags></metadata>';

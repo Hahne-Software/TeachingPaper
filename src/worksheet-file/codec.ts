@@ -297,7 +297,9 @@ const blockFromXml = (element: Element): StoredBlock => {
 const xmlOf = (element: Element) => {
   const xml = new XMLSerializer().serializeToString(element);
   // The serializer declares the default namespace again on a lone element; the text we write it into already has it.
-  return xml.replace(` xmlns="${NAMESPACE}"`, '');
+  return xml.replace(/^(<[^\s/>]+) xmlns="([^"]*)"/, (all, tag, ns) =>
+    ns === NAMESPACE ? tag : all,
+  );
 };
 
 /** In a newer MINOR version, a Block with unknown content is kept as it is. */
