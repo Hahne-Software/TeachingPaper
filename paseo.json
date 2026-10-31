@@ -1,0 +1,14 @@
+{
+  "worktree": {
+    "setup": "nix develop --command pnpm install --frozen-lockfile"
+  },
+  "scripts": {
+    "test": { "command": "nix develop --command pnpm test" },
+    "typecheck": { "command": "nix develop --command pnpm typecheck" },
+    "lint": { "command": "nix develop --command pnpm lint" },
+    "web": {
+      "type": "service",
+      "command": "nix develop --command pnpm dev --port $PASEO_PORT"
+    }
+  }
+}

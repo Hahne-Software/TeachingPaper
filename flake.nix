@@ -97,8 +97,9 @@
                 export XDG_DATA_DIRS="${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}:${pkgs.gtk3}/share/gsettings-schemas/${pkgs.gtk3.name}:$XDG_DATA_DIRS"
               ''}
 
-              # Drop into zsh for interactive sessions
-              if [ -z "$ZSH_VERSION" ] && [ -t 0 ] && [ -z "$IN_NIX_DEVSHELL_ZSH" ]; then
+              # Drop into zsh for interactive sessions, but not when Paseo runs
+              # a command via `nix develop --command` (exec zsh would swallow it)
+              if [ -z "$ZSH_VERSION" ] && [ -t 0 ] && [ -z "$IN_NIX_DEVSHELL_ZSH" ] && [ -z "$PASEO_WORKTREE_PATH" ]; then
                 export IN_NIX_DEVSHELL_ZSH=1
                 NIX_DEVSHELL_USER_ZDOTDIR="''${ZDOTDIR:-$HOME}" ZDOTDIR=${zdotdir} exec zsh
               fi
