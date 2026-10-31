@@ -657,10 +657,19 @@ describe('newer MINOR Format Versions', () => {
     ).toBe(false);
   });
 
+  it('compares versions numerically and writes them back as read', () => {
+    const bytes = zipWith(sheet('<map/>', '', '1.10'));
+    expect(decodeWorksheet(bytes).blocks[0].type).toBe(UNSUPPORTED_BLOCK);
+    expect(savedXml(roundTrip(bytes))).toContain('version="1.10"');
+  });
+
   it('flags newer files through their version', () => {
-    expect(decodeWorksheet(zipWith(sheet(''))).retained.version).toBe('1.1');
+    expect(decodeWorksheet(zipWith(sheet(''))).retained.version).toEqual({
+      major: 1,
+      minor: 1,
+    });
     expect(
       decodeWorksheet(zipWith(sheet('', '', '1.0'))).retained.version,
-    ).toBe('1.0');
+    ).toEqual({ major: 1, minor: 0 });
   });
 });

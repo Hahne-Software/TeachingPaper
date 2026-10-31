@@ -11,7 +11,10 @@ import {
 } from '../worksheet/metadata';
 import {
   FORMAT_VERSION,
+  compareFormatVersions,
+  formatVersionText,
   noRetained,
+  parseFormatVersion,
   type Retained,
 } from '../worksheet/retained';
 import { singleLine } from '../worksheet/single-line';
@@ -32,8 +35,12 @@ export type StoredWorksheet = {
   metadata: WorksheetMetadata;
   blocks: StoredBlock[];
   /** Content kept from the file this Worksheet was read from; none for a new Worksheet. */
-  retained?: Retained;
+  retained: Retained;
 };
+
+/** A Worksheet to write; without `retained` it is a new one, with nothing to keep. */
+export type WorksheetToWrite = Omit<StoredWorksheet, 'retained'> &
+  Partial<Pick<StoredWorksheet, 'retained'>>;
 
 type HeadingData = { text: string; level: 1 | 2 | 3 };
 
@@ -121,23 +128,23 @@ const blockToXml = ({ type, data }: StoredBlock): string[] => {
 /** Empty fields are left out, and so is `metadata` when every field is empty. */
 const metadataToXml = (
   metadata: WorksheetMetadata,
-  unknown: string[],
+  unknownMetadata: string[],
 ): string[] => {
   const fields = metadataFields.flatMap(({ field, element }) => {
     const text = escapeXml(singleLine(metadata[field]));
     return text === '' ? [] : [`    <${element}>${text}</${element}>`];
   });
-  const all = [...fields, ...unknown.map((xml) => `    ${xml}`)];
+  const all = [...fields, ...unknownMetadata.map((xml) => `    ${xml}`)];
   return all.length === 0 ? [] : ['  <metadata>', ...all, '  </metadata>'];
 };
 
 const worksheetToXml = (
-  { metadata, blocks }: StoredWorksheet,
-  { version, metadata: unknownMetadata }: Retained,
+  { metadata, blocks }: WorksheetToWrite,
+  { version, unknownMetadata }: Retained,
 ) =>
   [
     '<?xml version="1.0" encoding="UTF-8"?>',
-    `<worksheet xmlns="${NAMESPACE}" version="${version}">`,
+    `<worksheet xmlns="${NAMESPACE}" version="${formatVersionText(version)}">`,
     ...metadataToXml(metadata, unknownMetadata),
     '  <blocks>',
     ...blocks.flatMap(blockToXml),
@@ -147,7 +154,7 @@ const worksheetToXml = (
   ].join('\n');
 
 /** Packs a Worksheet into the bytes of a Worksheet File, with its retained content unchanged. */
-export const encodeWorksheet = (worksheet: StoredWorksheet): Uint8Array => {
+export const encodeWorksheet = (worksheet: WorksheetToWrite): Uint8Array => {
   const retained = worksheet.retained ?? noRetained;
   return zipSync({
     mimetype: [strToU8(MEDIA_TYPE), { level: 0 }],
@@ -169,8 +176,21 @@ const reject = (reason: string): never => {
  */
 class UnknownContent extends WorksheetFileError {}
 
-const unknown = (reason: string): never => {
+const unknownContent = (reason: string): never => {
   throw new UnknownContent(reason);
+};
+
+/**
+ * Runs `read`; in a newer MINOR version, content that Format Version 1.0 does not define is
+ * handled by `keep` instead of rejecting the file.
+ */
+const orKeepUnknown = <T>(newer: boolean, read: () => T, keep: () => T): T => {
+  try {
+    return read();
+  } catch (error) {
+    if (!newer || !(error instanceof UnknownContent)) throw error;
+    return keep();
+  }
 };
 
 /** Rejects attributes, as none are defined on `element` beyond `allowed`. */
@@ -178,7 +198,7 @@ const noOtherAttributes = (element: Element, allowed: string[] = []) => {
   const extra = Array.from(element.attributes).find(
     (attribute) => !allowed.includes(attribute.name),
   );
-  if (extra) unknown(`<${element.localName}> has an unknown attribute.`);
+  if (extra) unknownContent(`<${element.localName}> has an unknown attribute.`);
 };
 
 const unzip = (bytes: Uint8Array) => {
@@ -232,7 +252,8 @@ const runsFromXml = (node: Node, formatting: typeof plain): TextRun[] =>
       (child as Element).namespaceURI === NAMESPACE
         ? inlineMarks[(child as Element).localName]
         : undefined;
-    if (!mark) return unknown('Body Text contains unsupported formatting.');
+    if (!mark)
+      return unknownContent('Body Text contains unsupported formatting.');
     noOtherAttributes(child as Element);
     return runsFromXml(child, { ...formatting, [mark]: true });
   });
@@ -252,7 +273,7 @@ const childElements = (element: Element) => {
 const paragraphsFromXml = (element: Element): TextRun[][] => {
   const paragraphs = childElements(element).map((child) => {
     if (!isElement(child, 'p'))
-      unknown('Body Text may only contain paragraphs.');
+      unknownContent('Body Text may only contain paragraphs.');
     noOtherAttributes(child);
     return normalizeRuns(runsFromXml(child, plain));
   });
@@ -262,7 +283,7 @@ const paragraphsFromXml = (element: Element): TextRun[][] => {
 
 const blockFromXml = (element: Element): StoredBlock => {
   if (element.namespaceURI !== NAMESPACE)
-    unknown('It contains an element in a wrong namespace.');
+    unknownContent('It contains an element in a wrong namespace.');
   switch (element.localName) {
     case 'heading': {
       noOtherAttributes(element, ['level']);
@@ -270,7 +291,7 @@ const blockFromXml = (element: Element): StoredBlock => {
       if (![1, 2, 3].includes(level))
         reject('A Heading Level is out of range (1 to 3).');
       if (element.children.length > 0)
-        unknown('A Heading may only contain text.');
+        unknownContent('A Heading may only contain text.');
       const text = element.textContent ?? '';
       if (/[\n\r]/.test(text)) reject('A Heading contains a raw line break.');
       return {
@@ -287,7 +308,7 @@ const blockFromXml = (element: Element): StoredBlock => {
         },
       };
     default:
-      return unknown(
+      return unknownContent(
         `It contains an unknown Block Type "${element.localName}".`,
       );
   }
@@ -303,18 +324,18 @@ const xmlOf = (element: Element) => {
 };
 
 /** In a newer MINOR version, a Block with unknown content is kept as it is. */
-const blockOrUnsupported = (element: Element, newer: boolean): StoredBlock => {
-  try {
-    return blockFromXml(element);
-  } catch (error) {
-    if (!newer || !(error instanceof UnknownContent)) throw error;
-    const data: UnsupportedData = {
-      name: element.localName,
-      xml: xmlOf(element),
-    };
-    return { type: UNSUPPORTED_BLOCK, data };
-  }
-};
+const blockOrUnsupported = (element: Element, newer: boolean): StoredBlock =>
+  orKeepUnknown(
+    newer,
+    () => blockFromXml(element),
+    () => {
+      const data: UnsupportedData = {
+        name: element.localName,
+        xml: xmlOf(element),
+      };
+      return { type: UNSUPPORTED_BLOCK, data };
+    },
+  );
 
 const isNamed = (element: Element | undefined, name: string) =>
   element !== undefined && isElement(element, name);
@@ -325,7 +346,7 @@ const metadataFieldOf = (child: Element, siblings: Element[]) => {
     isNamed(child, element),
   );
   if (!definition)
-    return unknown(
+    return unknownContent(
       `It contains unknown Worksheet Metadata <${child.localName}>.`,
     );
   noOtherAttributes(child);
@@ -335,30 +356,35 @@ const metadataFieldOf = (child: Element, siblings: Element[]) => {
   if (occurrences > 1)
     reject(`<${child.localName}> appears twice in Worksheet Metadata.`);
   if (child.children.length > 0)
-    unknown(`<${child.localName}> may only contain text.`);
+    unknownContent(`<${child.localName}> may only contain text.`);
   return definition.field;
 };
+
+type ReadMetadata = { metadata: WorksheetMetadata; unknownMetadata: string[] };
 
 /**
  * Reads `metadata`, whose children may come in any order; an empty element counts as absent. In a
  * newer MINOR version, children with unknown content are returned as XML to be kept.
  */
-const metadataFromXml = (element: Element, newer: boolean) => {
+const metadataFromXml = (element: Element, newer: boolean): ReadMetadata => {
   const children = childElements(element);
-  return children.reduce(
-    (read, child) => {
-      try {
-        const field = metadataFieldOf(child, children);
-        const text = child.textContent ?? '';
-        if (/[\r\n]/.test(text))
-          reject('Worksheet Metadata contains a line break.');
-        return { ...read, metadata: { ...read.metadata, [field]: text } };
-      } catch (error) {
-        if (!newer || !(error instanceof UnknownContent)) throw error;
-        return { ...read, unknown: [...read.unknown, xmlOf(child)] };
-      }
-    },
-    { metadata: emptyMetadata, unknown: [] as string[] },
+  return children.reduce<ReadMetadata>(
+    (read, child) =>
+      orKeepUnknown(
+        newer,
+        () => {
+          const field = metadataFieldOf(child, children);
+          const text = child.textContent ?? '';
+          if (/[\r\n]/.test(text))
+            reject('Worksheet Metadata contains a line break.');
+          return { ...read, metadata: { ...read.metadata, [field]: text } };
+        },
+        () => ({
+          ...read,
+          unknownMetadata: [...read.unknownMetadata, xmlOf(child)],
+        }),
+      ),
+    { metadata: emptyMetadata, unknownMetadata: [] },
   );
 };
 
@@ -379,20 +405,18 @@ const worksheetParts = (root: Element) => {
 };
 
 /** The file's Format Version; rejects another MAJOR version. */
-const readVersion = (version: string | null) => {
-  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)$/.exec(version ?? '');
-  if (!match) return reject('Its Format Version is missing or malformed.');
-  if (match[1] !== FORMAT_VERSION.split('.')[0])
+const readVersion = (text: string | null) => {
+  const version = parseFormatVersion(text);
+  if (!version) return reject('Its Format Version is missing or malformed.');
+  if (version.major !== FORMAT_VERSION.major)
     reject(
-      `It uses Format Version ${version}, which needs a newer TeachingPaper.`,
+      `It uses Format Version ${text}, which needs a newer TeachingPaper.`,
     );
-  return version as string;
+  return version;
 };
 
 /** Reads the Worksheet out of the bytes of a Worksheet File; throws a WorksheetFileError if the file is invalid. */
-export const decodeWorksheet = (
-  bytes: Uint8Array,
-): Required<StoredWorksheet> => {
+export const decodeWorksheet = (bytes: Uint8Array): StoredWorksheet => {
   const entries = unzip(bytes);
   if (!entries.mimetype || strFromU8(entries.mimetype) !== MEDIA_TYPE)
     reject('It is not a Worksheet File (its mimetype is missing or wrong).');
@@ -401,11 +425,11 @@ export const decodeWorksheet = (
   if (root.localName !== 'worksheet' || root.namespaceURI !== NAMESPACE)
     reject('Its worksheet.xml is not a worksheet document.');
   const version = readVersion(root.getAttribute('version'));
-  const newer = version !== FORMAT_VERSION;
+  const newer = compareFormatVersions(version, FORMAT_VERSION) > 0;
   const parts = worksheetParts(root);
   const metadata = parts.metadata
     ? metadataFromXml(parts.metadata, newer)
-    : { metadata: emptyMetadata, unknown: [] };
+    : { metadata: emptyMetadata, unknownMetadata: [] };
   const others = Object.fromEntries(
     Object.entries(entries).filter(
       ([name]) => name !== 'mimetype' && name !== 'worksheet.xml',
@@ -416,13 +440,16 @@ export const decodeWorksheet = (
     blocks: childElements(parts.blocks).map((block) =>
       blockOrUnsupported(block, newer),
     ),
-    retained: { version, metadata: metadata.unknown, entries: others },
+    retained: {
+      version,
+      unknownMetadata: metadata.unknownMetadata,
+      entries: others,
+    },
   };
 };
 
 export type ReadResult =
-  | { ok: true; worksheet: Required<StoredWorksheet> }
-  | { ok: false; reason: string };
+  { ok: true; worksheet: StoredWorksheet } | { ok: false; reason: string };
 
 /** Like `decodeWorksheet`, but reports a rejected file as a reason instead of throwing. */
 export const readWorksheet = (bytes: Uint8Array): ReadResult => {

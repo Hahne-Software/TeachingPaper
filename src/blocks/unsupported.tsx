@@ -1,10 +1,12 @@
 import type { UnsupportedData } from '../worksheet/unsupported';
 import { defineBlockType, type BlockViewProps } from './types';
 
+const LABEL = 'Unsupported Block';
+
 function UnsupportedView({ data }: BlockViewProps<UnsupportedData>) {
   return (
     <div className="unsupported-block" role="note">
-      <strong>Unsupported Block</strong>
+      <strong>{LABEL}</strong>
       <span>
         &lt;{data.name}&gt; needs a newer TeachingPaper. It is kept unchanged
         when you save, and you can move or delete it.
@@ -15,7 +17,7 @@ function UnsupportedView({ data }: BlockViewProps<UnsupportedData>) {
 
 /** A Block this version does not understand: shown read-only, never offered in the Block Palette. */
 export const unsupportedBlockType = defineBlockType<UnsupportedData>({
-  label: 'Unsupported Block',
+  label: LABEL,
   icon: null,
   defaultData: () => ({ name: '', xml: '' }),
   View: UnsupportedView,

@@ -60,7 +60,7 @@ describe('Unsupported Blocks', () => {
     app.fake.answerSave('b.tpsheet');
     await app.menu('file-save-as');
     const saved = decodeWorksheet(app.fake.files.get('b.tpsheet')!);
-    expect(saved.retained.version).toBe('1.1');
+    expect(saved.retained.version).toEqual({ major: 1, minor: 1 });
     expect(saved.retained.entries['media/map.png']).toEqual(
       Uint8Array.of(1, 2, 3),
     );

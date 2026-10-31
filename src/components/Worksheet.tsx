@@ -10,7 +10,7 @@ import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { definitionFor } from '../blocks/registry';
 import type { BlockTypeDefinition } from '../blocks/types';
 import { useWorksheet } from '../worksheet/context';
-import { isNewerVersion } from '../worksheet/retained';
+import { formatVersionText, isNewerVersion } from '../worksheet/retained';
 import {
   insertionTop,
   layout,
@@ -88,7 +88,8 @@ export function Worksheet() {
     >
       {isNewerVersion(state.retained) && (
         <p role="status" className="newer-version-notice">
-          This file comes from a newer Format Version ({state.retained.version}
+          This file comes from a newer Format Version (
+          {formatVersionText(state.retained.version)}
           ). Content this version does not understand, such as Unsupported
           Blocks, stays unchanged when you save.
         </p>
