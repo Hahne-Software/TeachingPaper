@@ -1,6 +1,6 @@
 [package]
 name = "teaching-paper"
-version = "0.1.0"
+version = "0.2.0"
 description = "Desktop app for creating teaching material"
 authors = ["Hahne-Software"]
 license = "EUPL-1.2"
