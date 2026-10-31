@@ -1,6 +1,6 @@
 import type { ClipboardEvent } from 'react';
 import { flushSync } from 'react-dom';
-import { blockTypes } from '../blocks/registry';
+import { definitionFor } from '../blocks/registry';
 import { useWorksheet } from '../worksheet/context';
 import { metadataFields, type WorksheetMetadata } from '../worksheet/metadata';
 import { singleLine } from '../worksheet/single-line';
@@ -61,7 +61,7 @@ function MetadataProperties() {
 export function PropertiesPanel() {
   const { state, dispatch } = useWorksheet();
   const selected = state.blocks.find((block) => block.id === state.selectedId);
-  const definition = selected && blockTypes[selected.type];
+  const definition = selected && definitionFor(selected.type);
 
   return (
     <aside className="sidebar properties-panel" aria-label="Properties Panel">

@@ -79,8 +79,8 @@ body,
   padding: 24px;
   overflow: auto;
   display: flex;
-  justify-content: center;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: center;
 }
 
 /* Pages are decorative backgrounds; Blocks are positioned on top by the Worksheet. */
@@ -312,4 +312,27 @@ body,
   color: #fff;
   background: #b91c1c;
   border-radius: 0 0 4px 4px;
+}
+
+.unsupported-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px dashed #b08a2e;
+  border-radius: 4px;
+  background: #fbf5e4;
+  color: #5c4a14;
+  font-size: 0.9rem;
+  user-select: none;
+}
+
+.newer-version-notice {
+  margin: 0 auto 12px;
+  padding: 8px 12px;
+  max-width: 560px;
+  border-radius: 4px;
+  background: #fbf5e4;
+  color: #5c4a14;
+  font-size: 0.85rem;
 }

@@ -66,13 +66,14 @@ export function FileCommands({
    */
   const writeTo = useCallback(
     async (target: FileRef) => {
-      const { metadata, blocks } = latest.current.state;
+      const { metadata, blocks, retained } = latest.current.state;
       try {
         await port.writeBytes(
           target,
           encodeWorksheet({
             metadata,
             blocks: blocks.map(({ type, data }) => ({ type, data })),
+            retained,
           }),
         );
       } catch (error) {
