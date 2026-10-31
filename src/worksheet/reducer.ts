@@ -1,4 +1,5 @@
 import { emptyMetadata, type WorksheetMetadata } from './metadata';
+import { noRetained, type Retained } from './retained';
 
 export type Block = {
   id: string;
@@ -13,6 +14,8 @@ export type WorksheetContent = {
 };
 
 export type WorksheetState = WorksheetContent & {
+  /** What the open Worksheet File holds that is not edited here; written back on save. */
+  retained: Retained;
   /** The content as it was last saved, opened or started; compared by reference. */
   saved: WorksheetContent;
   selectedId: string | null;
@@ -30,6 +33,8 @@ export type WorksheetAction =
       type: 'replace';
       metadata: WorksheetMetadata;
       blocks: { type: string; data: unknown }[];
+      /** Defaults to nothing retained, as for a new Worksheet. */
+      retained?: Retained;
     }
   | { type: 'updateMetadata'; metadata: Partial<WorksheetMetadata> }
   /** The given content was written to a Worksheet File. */
@@ -42,6 +47,7 @@ const emptyContent: WorksheetContent = { metadata: emptyMetadata, blocks: [] };
 export const initialState: WorksheetState = {
   ...emptyContent,
   saved: emptyContent,
+  retained: noRetained,
   selectedId: null,
   nextId: 1,
 };
@@ -120,6 +126,7 @@ export const createWorksheetReducer =
         return {
           ...content,
           saved: content,
+          retained: action.retained ?? noRetained,
           selectedId: null,
           nextId: state.nextId + action.blocks.length,
         };

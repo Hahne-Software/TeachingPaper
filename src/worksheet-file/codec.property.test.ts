@@ -9,7 +9,7 @@ import {
   decodeWorksheet,
   encodeWorksheet,
   type StoredBlock,
-  type StoredWorksheet,
+  type WorksheetToWrite,
 } from './codec';
 
 /** Any UTF-16 code unit, with the characters files trip over made frequent. */
@@ -47,7 +47,7 @@ const blockData: Record<string, fc.Arbitrary<unknown>> = {
   }),
 };
 
-const worksheets: fc.Arbitrary<StoredWorksheet> = fc.record({
+const worksheets: fc.Arbitrary<WorksheetToWrite> = fc.record({
   metadata: fc.record({
     title: singleLineText,
     gradeLevel: singleLineText,

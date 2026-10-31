@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<worksheet xmlns="https://hahne.software/ns/teachingpaper/worksheet" version="1.1">
+  <metadata>
+    <title>Daily life in Ancient Rome</title>
+    <license>CC0</license>
+  </metadata>
+  <blocks>
+    <heading level="1">Daily life in Ancient Rome</heading>
+    <map src="media/map.png" zoom="3"><pin x="1" y="2"/></map>
+    <heading level="2" color="red">The forum</heading>
+    <body-text>
+      <p>Read the text.</p>
+    </body-text>
+  </blocks>
+</worksheet>
