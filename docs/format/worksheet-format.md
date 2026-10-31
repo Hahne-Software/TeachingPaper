@@ -4,7 +4,7 @@
 - **Namespace:** `https://hahne.software/ns/teachingpaper/worksheet`
 - **File extension:** `.tpsheet`
 - **Media type:** `application/vnd.teachingpaper.worksheet+zip`
-- **Schema:** [`worksheet-1.0.xsd`](worksheet-1.0.xsd), with [examples](examples/) of valid and invalid `worksheet.xml` files
+- **Schema:** [`worksheet-1.0.xsd`](worksheet-1.0.xsd), with [examples](examples/) of valid and invalid `worksheet.xml` files; `examples/newer/` holds files of a newer MINOR version (section 4.3), which do not validate against this schema but must open with Unsupported Blocks and save unchanged
 
 Copyright © 2026 Hahne-Software. This specification and its XML Schema are licensed under the [Creative Commons Attribution 4.0 International License (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/). Anyone may implement the format, in open or closed software, without asking.
 

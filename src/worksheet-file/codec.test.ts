@@ -672,4 +672,43 @@ describe('newer MINOR Format Versions', () => {
       decodeWorksheet(zipWith(sheet('', '', '1.0'))).retained.version,
     ).toEqual({ major: 1, minor: 0 });
   });
+
+  describe('examples of newer MINOR versions', () => {
+    const newerExamples = Object.entries(
+      import.meta.glob<string>('../../docs/format/examples/newer/*.xml', {
+        query: '?raw',
+        import: 'default',
+        eager: true,
+      }),
+    ).map(([path, contents]) => ({ name: path.split('/').pop(), contents }));
+
+    it('has examples to check', () => {
+      expect(newerExamples.length).toBeGreaterThan(0);
+    });
+
+    it.each(newerExamples)(
+      'opens $name with Unsupported Blocks and saves it unchanged',
+      ({ contents }) => {
+        const worksheet = decodeWorksheet(zipWith(contents));
+        const kept = [
+          ...worksheet.blocks
+            .filter((b) => b.type === UNSUPPORTED_BLOCK)
+            .map((b) => (b.data as { xml: string }).xml),
+          ...worksheet.retained.unknownMetadata,
+        ];
+        expect(kept.length).toBeGreaterThan(0);
+        const xml = savedXml(encodeWorksheet(worksheet));
+        kept.forEach((fragment) => expect(xml).toContain(fragment));
+        expect(decodeWorksheet(encodeWorksheet(worksheet))).toEqual(worksheet);
+      },
+    );
+
+    it.each(newerExamples)(
+      'rejects $name once it claims to be 1.0',
+      ({ contents }) => {
+        const asOldVersion = contents.replace('version="1.1"', 'version="1.0"');
+        expect(readWorksheet(zipWith(asOldVersion)).ok).toBe(false);
+      },
+    );
+  });
 });
