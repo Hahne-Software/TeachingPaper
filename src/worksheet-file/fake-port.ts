@@ -6,12 +6,17 @@ export const createFakePort = () => {
   const nextOpen: (string | null)[] = [];
   const nextSave: (string | null)[] = [];
   const nextAnswer: SaveChangesAnswer[] = [];
+  const failures: string[] = [];
   const guards = new Set<CloseGuard>();
   const fake = {
     /** File names the save-changes question was asked about. */
     questions: [] as string[],
     files,
     titles: [] as string[],
+    /** Messages shown through `showError`. */
+    errors: [] as string[],
+    /** The next write fails with this message. */
+    failNextWrite: (message: string) => void failures.push(message),
     openDialogs: 0,
     saveDialogs: 0,
     writes: [] as string[],
@@ -46,6 +51,8 @@ export const createFakePort = () => {
       return bytes;
     },
     writeBytes: async ({ name }: FileRef, bytes) => {
+      const failure = failures.shift();
+      if (failure !== undefined) throw new Error(failure);
       files.set(name, bytes);
       fake.writes.push(name);
     },
@@ -57,6 +64,7 @@ export const createFakePort = () => {
       guards.add(guard);
       return () => void guards.delete(guard);
     },
+    showError: async (_title, message) => void fake.errors.push(message),
     setWindowTitle: (title) => void fake.titles.push(title),
   };
   return { port, fake };

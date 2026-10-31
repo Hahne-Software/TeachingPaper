@@ -56,6 +56,7 @@ export const createBrowserPort = (): FilePort => {
       window.addEventListener('beforeunload', onBeforeUnload);
       return () => window.removeEventListener('beforeunload', onBeforeUnload);
     },
+    showError: async (title, message) => window.alert(`${title}\n\n${message}`),
     setWindowTitle: (title) => {
       document.title = title;
     },

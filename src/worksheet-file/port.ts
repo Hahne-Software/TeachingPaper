@@ -24,5 +24,7 @@ export type FilePort = {
   askToSaveChanges: (name: string) => Promise<SaveChangesAnswer>;
   /** Guards closing the window; returns a function that removes the guard. */
   onCloseRequested: (guard: CloseGuard) => () => void;
+  /** Tells the teacher that something failed. */
+  showError: (title: string, message: string) => Promise<void>;
   setWindowTitle: (title: string) => void;
 };

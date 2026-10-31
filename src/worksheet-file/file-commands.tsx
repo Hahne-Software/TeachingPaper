@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useWorksheet } from '../worksheet/context';
 import { emptyMetadata } from '../worksheet/metadata';
 import { hasUnsavedChanges } from '../worksheet/reducer';
-import { decodeWorksheet, encodeWorksheet } from './codec';
+import { encodeWorksheet, readWorksheet } from './codec';
 import type { FilePort, FileRef } from './port';
 
 export const APP_NAME = 'TeachingPaper';
@@ -51,23 +51,40 @@ export function FileCommands({
   const title = windowTitle(file?.name ?? null, hasUnsavedChanges(state));
   useEffect(() => port.setWindowTitle(title), [port, title]);
 
-  /** Each resolves true when the Worksheet ended up in a file, false when a dialog was cancelled. */
+  const fail = useCallback(
+    (title: string, subject: string, error: unknown) =>
+      port.showError(
+        title,
+        `${subject}. ${error instanceof Error ? error.message : String(error)}`,
+      ),
+    [port],
+  );
+
+  /**
+   * Each resolves true when the Worksheet ended up in a file, false when a dialog was cancelled or
+   * the write failed (which is reported and leaves the Worksheet unsaved).
+   */
   const writeTo = useCallback(
     async (target: FileRef) => {
       const { metadata, blocks } = latest.current.state;
-      await port.writeBytes(
-        target,
-        encodeWorksheet({
-          metadata,
-          blocks: blocks.map(({ type, data }) => ({ type, data })),
-        }),
-      );
+      try {
+        await port.writeBytes(
+          target,
+          encodeWorksheet({
+            metadata,
+            blocks: blocks.map(({ type, data }) => ({ type, data })),
+          }),
+        );
+      } catch (error) {
+        await fail('Could not save', `Could not save ${target.name}`, error);
+        return false;
+      }
       // Edits made while writing stay Unsaved Changes: only the written content counts as saved.
       dispatch({ type: 'saved', content: { metadata, blocks } });
       setFile(target);
       return true;
     },
-    [port, dispatch],
+    [port, dispatch, fail],
   );
 
   const saveAs = useCallback(async () => {
@@ -94,10 +111,18 @@ export function FileCommands({
     if (!(await settleChanges())) return;
     const chosen = await port.showOpenDialog();
     if (!chosen) return;
-    const worksheet = decodeWorksheet(await port.readBytes(chosen));
-    dispatch({ type: 'replace', ...worksheet });
+    const subject = `Could not open ${chosen.name}`;
+    let bytes: Uint8Array;
+    try {
+      bytes = await port.readBytes(chosen);
+    } catch (error) {
+      return fail('Could not open', subject, error);
+    }
+    const result = readWorksheet(bytes);
+    if (!result.ok) return fail('Could not open', subject, result.reason);
+    dispatch({ type: 'replace', ...result.worksheet });
     setFile(chosen);
-  }, [port, dispatch, settleChanges]);
+  }, [port, dispatch, settleChanges, fail]);
 
   const startNew = useCallback(async () => {
     if (!(await settleChanges())) return;

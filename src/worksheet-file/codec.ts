@@ -136,24 +136,27 @@ export const encodeWorksheet = (worksheet: StoredWorksheet): Uint8Array =>
     'worksheet.xml': strToU8(worksheetToXml(worksheet)),
   });
 
+/** A Worksheet File that must be rejected as a whole; `message` is meant for the teacher. */
+export class WorksheetFileError extends Error {}
+
 const reject = (reason: string): never => {
-  throw new Error(`Not a valid Worksheet File: ${reason}`);
+  throw new WorksheetFileError(reason);
 };
 
 const unzip = (bytes: Uint8Array) => {
   try {
     return unzipSync(bytes);
   } catch {
-    return reject('not a ZIP archive');
+    return reject('It is not a Worksheet File (not a ZIP archive).');
   }
 };
 
 const parseXml = (xml: string) => {
   if (/<!DOCTYPE/i.test(xml))
-    reject('document type declarations are not allowed');
+    reject('It contains a document type declaration, which is not allowed.');
   const document = new DOMParser().parseFromString(xml, 'application/xml');
   if (document.getElementsByTagName('parsererror').length > 0)
-    reject('worksheet.xml is not well-formed XML');
+    reject('Its worksheet.xml is not well-formed XML.');
   return document.documentElement;
 };
 
@@ -176,19 +179,21 @@ const runsFromXml = (node: Node, formatting: typeof plain): TextRun[] =>
       child.nodeType === Node.CDATA_SECTION_NODE
     ) {
       const text = child.nodeValue ?? '';
-      if (/[\n\r\t]/.test(text)) reject('raw line break or tab in Body Text');
+      if (/[\n\r\t]/.test(text))
+        reject('Body Text contains a raw line break or tab.');
       return [{ text, ...formatting }];
     }
     if (child.nodeType !== Node.ELEMENT_NODE) return [];
     if (isElement(child, 'br')) {
-      if (child.hasChildNodes()) reject('line break with content');
+      if (child.hasChildNodes())
+        reject('A line break in Body Text has content.');
       return [{ text: '\n', ...formatting }];
     }
     const mark =
       (child as Element).namespaceURI === NAMESPACE
         ? inlineMarks[(child as Element).localName]
         : undefined;
-    if (!mark) return reject('unsupported formatting in Body Text');
+    if (!mark) return reject('Body Text contains unsupported formatting.');
     return runsFromXml(child, { ...formatting, [mark]: true });
   });
 
@@ -199,30 +204,36 @@ const childElements = (element: Element) => {
       child.nodeType === Node.TEXT_NODE &&
       /[^ \t\r\n]/.test(child.nodeValue ?? '')
     )
-      reject(`text inside <${element.localName}>`);
+      reject(`There is stray text inside <${element.localName}>.`);
   });
   return Array.from(element.children);
 };
 
 const paragraphsFromXml = (element: Element): TextRun[][] => {
   const paragraphs = childElements(element).map((child) => {
-    if (!isElement(child, 'p')) reject('Body Text may only contain paragraphs');
+    if (!isElement(child, 'p'))
+      reject('Body Text may only contain paragraphs.');
     return normalizeRuns(runsFromXml(child, plain));
   });
-  if (paragraphs.length === 0) reject('Body Text without paragraphs');
+  if (paragraphs.length === 0) reject('A Body Text has no paragraphs.');
   return paragraphs;
 };
 
 const blockFromXml = (element: Element): StoredBlock => {
   if (element.namespaceURI !== NAMESPACE)
-    reject('element in a wrong namespace');
+    reject('It contains an element in a wrong namespace.');
   switch (element.localName) {
     case 'heading': {
       const level = Number(element.getAttribute('level'));
-      if (![1, 2, 3].includes(level)) reject('Heading Level out of range');
+      if (![1, 2, 3].includes(level))
+        reject('A Heading Level is out of range (1 to 3).');
+      if (element.children.length > 0)
+        reject('A Heading may only contain text.');
+      const text = element.textContent ?? '';
+      if (/[\n\r]/.test(text)) reject('A Heading contains a raw line break.');
       return {
         type: 'heading',
-        data: { text: element.textContent ?? '', level },
+        data: { text, level },
       };
     }
     case 'body-text':
@@ -233,7 +244,9 @@ const blockFromXml = (element: Element): StoredBlock => {
         },
       };
     default:
-      return reject(`unsupported Block Type "${element.localName}"`);
+      return reject(
+        `It contains an unknown Block Type "${element.localName}".`,
+      );
   }
 };
 
@@ -245,13 +258,17 @@ const metadataFieldOf = (child: Element, siblings: Element[]) => {
   const definition = metadataFields.find(({ element }) =>
     isNamed(child, element),
   );
-  if (!definition) return reject(`unsupported Metadata <${child.localName}>`);
+  if (!definition)
+    return reject(
+      `It contains unknown Worksheet Metadata <${child.localName}>.`,
+    );
   const occurrences = siblings.filter((sibling) =>
     isNamed(sibling, definition.element),
   ).length;
-  if (occurrences > 1) reject(`<${child.localName}> appears twice in Metadata`);
+  if (occurrences > 1)
+    reject(`<${child.localName}> appears twice in Worksheet Metadata.`);
   if (child.children.length > 0)
-    reject(`<${child.localName}> may only contain text`);
+    reject(`<${child.localName}> may only contain text.`);
   return definition.field;
 };
 
@@ -260,7 +277,8 @@ const metadataFromXml = (element: Element): WorksheetMetadata => {
   const children = childElements(element);
   return children.reduce((metadata, child) => {
     const text = child.textContent ?? '';
-    if (/[\r\n]/.test(text)) reject('line break in Metadata');
+    if (/[\r\n]/.test(text))
+      reject('Worksheet Metadata contains a line break.');
     return { ...metadata, [metadataFieldOf(child, children)]: text };
   }, emptyMetadata);
 };
@@ -276,23 +294,47 @@ const worksheetParts = (root: Element) => {
     rest.length === 0
   )
     return { metadata: first, blocks: second };
-  return reject('expected an optional <metadata> followed by <blocks>');
+  return reject(
+    'Its worksheet.xml must hold an optional <metadata> followed by <blocks>.',
+  );
 };
 
-/** Reads the Worksheet out of the bytes of a Worksheet File; throws if the file is invalid. */
+const checkVersion = (version: string | null) => {
+  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)$/.exec(version ?? '');
+  if (!match) reject('Its Format Version is missing or malformed.');
+  else if (version !== FORMAT_VERSION)
+    reject(
+      `It uses Format Version ${version}, which needs a newer TeachingPaper.`,
+    );
+};
+
+/** Reads the Worksheet out of the bytes of a Worksheet File; throws a WorksheetFileError if the file is invalid. */
 export const decodeWorksheet = (bytes: Uint8Array): StoredWorksheet => {
   const entries = unzip(bytes);
   if (!entries.mimetype || strFromU8(entries.mimetype) !== MEDIA_TYPE)
-    reject('wrong or missing mimetype');
-  if (!entries['worksheet.xml']) reject('worksheet.xml is missing');
+    reject('It is not a Worksheet File (its mimetype is missing or wrong).');
+  if (!entries['worksheet.xml']) reject('Its worksheet.xml is missing.');
   const root = parseXml(strFromU8(entries['worksheet.xml']));
   if (root.localName !== 'worksheet' || root.namespaceURI !== NAMESPACE)
-    reject('root element is not a worksheet');
-  if (root.getAttribute('version') !== FORMAT_VERSION)
-    reject('unsupported Format Version');
+    reject('Its worksheet.xml is not a worksheet document.');
+  checkVersion(root.getAttribute('version'));
   const parts = worksheetParts(root);
   return {
     metadata: parts.metadata ? metadataFromXml(parts.metadata) : emptyMetadata,
     blocks: childElements(parts.blocks).map(blockFromXml),
   };
+};
+
+export type ReadResult =
+  { ok: true; worksheet: StoredWorksheet } | { ok: false; reason: string };
+
+/** Like `decodeWorksheet`, but reports a rejected file as a reason instead of throwing. */
+export const readWorksheet = (bytes: Uint8Array): ReadResult => {
+  try {
+    return { ok: true, worksheet: decodeWorksheet(bytes) };
+  } catch (error) {
+    if (error instanceof WorksheetFileError)
+      return { ok: false, reason: error.message };
+    throw error;
+  }
 };
