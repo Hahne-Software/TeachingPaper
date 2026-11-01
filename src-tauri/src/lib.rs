@@ -1,4 +1,5 @@
 mod atomic_write;
+mod spike_pdf;
 
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 use tauri::{Emitter, Manager};
@@ -11,10 +12,25 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
             atomic_write::write_file_atomic,
-            atomic_write::file_exists
+            atomic_write::file_exists,
+            spike_pdf::spike_print_pdf
         ])
         .setup(|app| {
             let handle = app.handle();
+
+            // Spike: `SPIKE_PDF_OUT=<file>` prints the fixed document to that file and exits.
+            if let Ok(out) = std::env::var("SPIKE_PDF_OUT") {
+                let h = handle.clone();
+                let out_log = out.clone();
+                tauri::async_runtime::spawn(async move {
+                    let r = spike_pdf::spike_print_pdf(h.clone(), out).await;
+                    if let Err(e) = &r {
+                        eprintln!("SPIKE print failed: {e}");
+                        let _ = std::fs::write(format!("{out_log}.log"), e);
+                    }
+                    h.exit(if r.is_ok() { 0 } else { 1 });
+                });
+            }
 
             let recent_menu = SubmenuBuilder::new(handle, "Open Recent")
                 .item(

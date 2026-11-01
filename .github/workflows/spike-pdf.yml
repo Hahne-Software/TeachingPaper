@@ -1,0 +1,70 @@
+name: Spike native PDF
+# Throwaway spike for issue #65. Never merged.
+on:
+  push:
+    branches: ['spike/**']
+  workflow_dispatch:
+
+jobs:
+  print:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04, platform: linux }
+          - { os: macos-latest, platform: macos }
+          - { os: macos-13, platform: macos-13 }
+          - { os: windows-latest, platform: windows }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Linux dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xvfb
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build
+        shell: bash
+        run: |
+          mkdir -p dist
+          cd src-tauri && cargo build --release
+      - name: Print the PDF
+        shell: bash
+        run: |
+          mkdir -p "$PWD/out"
+          OUT="$PWD/out/${{ matrix.platform }}.pdf"
+          if [ "${{ matrix.platform }}" = windows ]; then OUT=$(cygpath -w "$OUT"); fi
+          export SPIKE_PDF_OUT="$OUT"
+          BIN=src-tauri/target/release/teaching-paper
+          if [ "${{ matrix.platform }}" = windows ]; then BIN=$BIN.exe; fi
+          if [ "${{ matrix.platform }}" = linux ]; then
+            WEBKIT_DISABLE_DMABUF_RENDERER=1 timeout 120 xvfb-run -a "$BIN" || echo "exit $?"
+          elif [ "${{ matrix.platform }}" = windows ]; then
+            timeout 120 "$BIN" || echo "exit $?"
+          else
+            perl -e 'alarm 120; exec @ARGV' "$BIN" || echo "exit $?"
+          fi
+          ls -la out
+          cat out/*.log || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pdf-${{ matrix.platform }}
+          path: out/
+  analyze:
+    needs: print
+    if: always()
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: pdfs, pattern: 'pdf-*', merge-multiple: true }
+      - run: sudo apt-get update && sudo apt-get install -y poppler-utils
+      - run: |
+          for f in pdfs/*.pdf; do
+            echo "=== $f"; pdfinfo -box "$f"; pdffonts "$f"; pdftotext -layout "$f" - | head -20
+            pdftoppm -r 40 -png "$f" "${f%.pdf}"
+          done
+          ls pdfs
+      - uses: actions/upload-artifact@v4
+        with: { name: pdf-analysis, path: pdfs/ }

@@ -28,6 +28,21 @@ percent-encoding = "2"
 tempfile = "3"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
+base64 = "0.22"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18"
+webkit2gtk = "2.0"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["NSDictionary", "NSString", "NSURL", "NSGeometry", "NSValue"] }
+objc2-app-kit = { version = "0.3", features = ["NSPrintInfo", "NSPrintOperation", "NSView", "NSResponder"] }
+objc2-web-kit = { version = "0.3", features = ["WKWebView", "objc2-app-kit"] }
+
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows = "0.62"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
