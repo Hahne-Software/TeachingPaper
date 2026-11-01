@@ -1,0 +1,56 @@
+name: Spike native print-to-PDF
+on:
+  push:
+    branches: ['spike/**']
+jobs:
+  print:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev librsvg2-dev xvfb
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: cargo build --features tauri/custom-protocol
+        working-directory: src-tauri
+      - name: Print (Linux)
+        if: runner.os == 'Linux'
+        env:
+          SPIKE_PRINT_PDF: ${{ github.workspace }}/spike.pdf
+        run: xvfb-run -a src-tauri/target/debug/teaching-paper
+      - name: Print (macOS)
+        if: runner.os == 'macOS'
+        env:
+          SPIKE_PRINT_PDF: ${{ github.workspace }}/spike.pdf
+        run: src-tauri/target/debug/teaching-paper
+      - name: Print (Windows)
+        if: runner.os == 'Windows'
+        env:
+          SPIKE_PRINT_PDF: ${{ github.workspace }}\spike.pdf
+        run: src-tauri\target\debug\teaching-paper.exe
+      - name: Inspect
+        if: always()
+        run: |
+          pip install pymupdf
+          python .github/spike/check_pdf.py spike.pdf
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: spike-pdf-${{ runner.os }}
+          path: spike.pdf

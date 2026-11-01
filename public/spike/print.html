@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Spike Print Title</title>
+    <style>
+      @font-face {
+        font-family: 'SpikeFont';
+        src: url('DejaVuSans.ttf');
+        font-weight: 400;
+      }
+      @font-face {
+        font-family: 'SpikeFont';
+        src: url('DejaVuSans-Bold.ttf');
+        font-weight: 700;
+      }
+      @page {
+        size: A4;
+        margin: 0;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: 'SpikeFont', sans-serif;
+        font-size: 14pt;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .page {
+        position: relative;
+        width: 210mm;
+        height: 296.5mm;
+        overflow: hidden;
+        box-sizing: border-box;
+        border: 2mm solid #c00;
+      }
+      .page + .page {
+        break-before: page;
+        page-break-before: always;
+      }
+      .block {
+        position: absolute;
+        left: 0;
+        top: 0;
+        padding: 4mm;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page" id="p1">
+      <div class="block">
+        Page ONE: plain, <b>bold</b>, <i>italic</i>, <u>underlined</u> text.
+      </div>
+    </div>
+    <div class="page" id="p2">
+      <div class="block">Page TWO: second page starts here.</div>
+    </div>
+  </body>
+</html>
