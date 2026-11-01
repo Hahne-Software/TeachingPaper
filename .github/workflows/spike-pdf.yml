@@ -30,16 +30,19 @@ jobs:
       - run: cargo build --features tauri/custom-protocol
         working-directory: src-tauri
       - name: Print (Linux)
+        timeout-minutes: 3
         if: runner.os == 'Linux'
         env:
           SPIKE_PRINT_PDF: ${{ github.workspace }}/spike.pdf
         run: xvfb-run -a src-tauri/target/debug/teaching-paper
       - name: Print (macOS)
+        timeout-minutes: 3
         if: runner.os == 'macOS'
         env:
           SPIKE_PRINT_PDF: ${{ github.workspace }}/spike.pdf
         run: src-tauri/target/debug/teaching-paper
       - name: Print (Windows)
+        timeout-minutes: 3
         if: runner.os == 'Windows'
         env:
           SPIKE_PRINT_PDF: ${{ github.workspace }}\spike.pdf

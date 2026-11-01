@@ -118,17 +118,19 @@ fn print_platform(wv: PlatformWebview, path: &Path, done: Done) {
 
 #[cfg(target_os = "macos")]
 fn print_platform(wv: PlatformWebview, path: &Path, done: Done) {
+    use objc2::rc::Retained;
     use objc2::runtime::ProtocolObject;
-    use objc2_app_kit::{NSPrintInfo, NSPrintJobSavingURL, NSPrintSaveJob};
+    use objc2_app_kit::{NSPrintInfo, NSPrintJobSavingURL, NSPrintSaveJob, NSWindow};
     use objc2_foundation::{NSSize, NSString, NSURL};
     use objc2_web_kit::WKWebView;
 
     let webview: &WKWebView = unsafe { &*wv.inner().cast() };
+    let window: Retained<NSWindow> = unsafe { Retained::retain(wv.ns_window().cast()).unwrap() };
     let url = NSURL::fileURLWithPath(&NSString::from_str(&path.to_string_lossy()));
     unsafe {
         let info = NSPrintInfo::new();
         // A4 in points
-        info.setPaperSize(NSSize::new(595.0, 842.0));
+        info.setPaperSize(NSSize::new(595.28, 841.89));
         info.setTopMargin(0.0);
         info.setBottomMargin(0.0);
         info.setLeftMargin(0.0);
@@ -140,13 +142,29 @@ fn print_platform(wv: PlatformWebview, path: &Path, done: Done) {
         op.setShowsPrintPanel(false);
         op.setShowsProgressPanel(false);
         op.view().unwrap().setFrame(webview.frame());
-        let ok = op.runOperation();
-        let _ = done.send(if ok {
-            Ok(())
-        } else {
-            Err("runOperation returned NO".to_string())
-        });
+        // Asynchronous: the synchronous runOperation blocks the main thread forever for a
+        // WKWebView. Completion is detected by polling the output file.
+        op.runOperationModalForWindow_delegate_didRunSelector_contextInfo(
+            &window,
+            None,
+            None,
+            std::ptr::null_mut(),
+        );
     }
+    let path = path.to_path_buf();
+    std::thread::spawn(move || {
+        let mut last = 0;
+        for _ in 0..100 {
+            std::thread::sleep(Duration::from_millis(500));
+            let len = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+            if len > 0 && len == last {
+                let _ = done.send(Ok(()));
+                return;
+            }
+            last = len;
+        }
+        let _ = done.send(Err("output file never appeared".to_string()));
+    });
 }
 
 #[cfg(not(any(target_os = "linux", windows, target_os = "macos")))]
