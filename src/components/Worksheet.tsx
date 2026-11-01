@@ -1,22 +1,10 @@
-import {
-  Fragment,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { Fragment, useEffect, useLayoutEffect, useState } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { definitionFor } from '../blocks/registry';
 import type { BlockTypeDefinition } from '../blocks/types';
 import { useWorksheet } from '../worksheet/context';
 import { formatVersionText, isNewerVersion } from '../worksheet/retained';
-import {
-  insertionTop,
-  layout,
-  PAGE_GAP,
-  type Placement,
-} from '../worksheet/layout';
+import { insertionTop, PAGE_GAP, type Placement } from '../worksheet/layout';
 import {
   BLOCK_BLEED,
   PAGE_CONTENT_HEIGHT,
@@ -31,33 +19,12 @@ import {
   useInsertionIndex,
 } from './WorksheetDnd';
 
-/** Fallback until a Block has been measured. */
-const UNMEASURED_HEIGHT = 0;
-
-/** Tracks each Block's rendered height, updating whenever the Block resizes. */
-const useBlockHeights = () => {
-  const [heights, setHeights] = useState<Record<string, number>>({});
-  const report = useCallback((id: string, height: number) => {
-    setHeights((current) =>
-      current[id] === height ? current : { ...current, [id]: height },
-    );
-  }, []);
-  return { heights, report };
-};
-
 export function Worksheet() {
-  const { state, dispatch } = useWorksheet();
+  const { state, dispatch, pageLayout, reportBlockHeight } = useWorksheet();
   const insertionIndex = useInsertionIndex();
   const { setNodeRef } = useDroppable({ id: WORKSHEET_DROPPABLE_ID });
   const { selectedId } = state;
-  const { heights, report } = useBlockHeights();
-  const { placements, pageHeights, oversized, totalHeight } = useMemo(
-    () =>
-      layout(
-        state.blocks.map((block) => heights[block.id] ?? UNMEASURED_HEIGHT),
-      ),
-    [state.blocks, heights],
-  );
+  const { placements, pageHeights, oversized, totalHeight } = pageLayout;
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -131,7 +98,7 @@ export function Worksheet() {
                 selected={block.id === state.selectedId}
                 placement={placements[index]}
                 oversized={oversized.has(index)}
-                onHeight={report}
+                onHeight={reportBlockHeight}
               />
             </Fragment>
           );
