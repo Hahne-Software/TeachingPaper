@@ -91,8 +91,8 @@ fn print_platform(wv: PlatformWebview, path: &Path, done: Done) {
             let settings = env.CreatePrintSettings()?;
             settings.SetOrientation(COREWEBVIEW2_PRINT_ORIENTATION_PORTRAIT)?;
             // A4 in inches
-            settings.SetPageWidth(8.27)?;
-            settings.SetPageHeight(11.69)?;
+            settings.SetPageWidth(8.2677)?;
+            settings.SetPageHeight(11.6929)?;
             settings.SetMarginTop(0.0)?;
             settings.SetMarginBottom(0.0)?;
             settings.SetMarginLeft(0.0)?;
