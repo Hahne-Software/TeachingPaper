@@ -63,6 +63,15 @@ _Avoid_: Dirty state, modifications
 The version of the Worksheet format (MAJOR.MINOR) a Worksheet File was written in, which determines the rules that apply to it; independent of the app version.
 _Avoid_: Schema version, file version
 
+### Export
+
+**Export**:
+Producing a file in another format from a Worksheet, for printing or sharing; the Worksheet File stays unchanged.
+_Avoid_: Print, render, save as
+
+**Export Format**:
+A target format of an Export, such as PDF or HTML.
+
 ### Block Types
 
 **Heading**:
