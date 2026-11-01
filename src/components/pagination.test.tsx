@@ -3,7 +3,8 @@ import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { flushResizeObservers } from '../test/setup';
-import { WorksheetProvider } from '../worksheet/context';
+import { WorksheetProvider, useWorksheet } from '../worksheet/context';
+import type { PageLayout } from '../worksheet/layout';
 import { BlockPalette } from './BlockPalette';
 import { Worksheet } from './Worksheet';
 import { WorksheetDnd } from './WorksheetDnd';
@@ -106,5 +107,33 @@ describe('automatic pagination', () => {
 
     resize(0, 1200);
     expect(screen.getByRole('alert')).toHaveTextContent(/overflows the Page/);
+  });
+});
+
+describe('Page layout outside the Worksheet view', () => {
+  it('can be read by a command that runs after the Blocks were measured', async () => {
+    let read: () => PageLayout = () => {
+      throw new Error('not mounted');
+    };
+    function Probe() {
+      read = useWorksheet().getPageLayout;
+      return null;
+    }
+    render(
+      <WorksheetProvider>
+        <WorksheetDnd>
+          <BlockPalette />
+          <Worksheet />
+          <Probe />
+        </WorksheetDnd>
+      </WorksheetProvider>,
+    );
+    await insert('Heading', 600);
+    await insert('Heading', 600);
+    const { placements, oversized, pageHeights } = read();
+    expect(placements.map((p) => p.page)).toEqual([0, 1]);
+    expect(placements.map((p) => p.height)).toEqual([600, 600]);
+    expect(oversized.size).toBe(0);
+    expect(pageHeights).toHaveLength(2);
   });
 });

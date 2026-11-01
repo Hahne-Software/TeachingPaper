@@ -51,6 +51,8 @@ export const layout = (heights: number[]) => {
   };
 };
 
+export type PageLayout = ReturnType<typeof layout>;
+
 /** Screen position of the line marking where a dropped Block would go. */
 export const insertionTop = (index: number, placements: Placement[]) => {
   if (placements.length === 0) return PAGE_MARGIN;
