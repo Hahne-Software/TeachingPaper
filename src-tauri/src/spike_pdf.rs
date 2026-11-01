@@ -102,7 +102,7 @@ fn print_platform(wv: PlatformWebview, path: &Path, done: Done) {
             let tx = done.clone();
             let handler = PrintToPdfCompletedHandler::create(Box::new(move |res, ok| {
                 let _ = tx.send(match res {
-                    Ok(()) if ok.as_bool() => Ok(()),
+                    Ok(()) if ok => Ok(()),
                     Ok(()) => Err("PrintToPdf reported failure".to_string()),
                     Err(e) => Err(e.to_string()),
                 });
@@ -118,6 +118,7 @@ fn print_platform(wv: PlatformWebview, path: &Path, done: Done) {
 
 #[cfg(target_os = "macos")]
 fn print_platform(wv: PlatformWebview, path: &Path, done: Done) {
+    use objc2::runtime::ProtocolObject;
     use objc2_app_kit::{NSPrintInfo, NSPrintJobSavingURL, NSPrintSaveJob};
     use objc2_foundation::{NSSize, NSString, NSURL};
     use objc2_web_kit::WKWebView;
@@ -134,7 +135,7 @@ fn print_platform(wv: PlatformWebview, path: &Path, done: Done) {
         info.setRightMargin(0.0);
         info.setJobDisposition(NSPrintSaveJob);
         info.dictionary()
-            .setObject_forKey(&url, NSPrintJobSavingURL);
+            .setObject_forKey(&url, ProtocolObject::from_ref(NSPrintJobSavingURL));
         let op = webview.printOperationWithPrintInfo(&info);
         op.setShowsPrintPanel(false);
         op.setShowsProgressPanel(false);
