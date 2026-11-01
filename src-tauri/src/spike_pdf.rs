@@ -143,6 +143,7 @@ mod platform {
 #[cfg(target_os = "macos")]
 mod platform {
     use objc2::rc::Retained;
+    use objc2::{AnyThread, Message};
     use objc2::runtime::AnyObject;
     use objc2_app_kit::{NSPrintInfo, NSPrintJobDisposition, NSPrintJobSavingURL, NSPrintSaveJob};
     use objc2_foundation::{NSDictionary, NSPoint, NSRect, NSSize, NSString, NSURL};
