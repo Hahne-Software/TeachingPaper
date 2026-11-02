@@ -14,3 +14,8 @@ Building on ADR-0001, every Export Format starts from one self-contained HTML do
 - Each Block Type has a read-only Export view that must render with the same markup and CSS as its editor view; a WebKit check compares their heights.
 - Native print-to-PDF is platform code in `src-tauri/` and can only be verified in the real app on each platform (nightly builds), not in Vitest.
 - PDF metadata is limited to what the document `<title>` gives each platform.
+- A spike (#65) confirmed that all three platforms print the export document to a PDF without a dialog, so the browser-layout fallback is not needed. Its findings shape the export document:
+  - The PDF page boxes are A4 only within about 0.5 pt (595 × 842 pt on Linux and macOS, 594.96 × 841.92 pt on Windows); tests must allow that tolerance.
+  - On Linux (WebKitGTK) a Page exactly 297 mm high spills onto an extra blank page, so the export document sizes each Page 0.5 mm shorter than A4 (296.5 mm). Tests compare the PDF page count with the Page count.
+  - The document waits for `document.fonts.ready` before printing, so bundled fonts are embedded.
+  - On macOS the print operation must run asynchronously (`runOperationModalForWindow`); the synchronous `runOperation` blocks the main thread forever.
