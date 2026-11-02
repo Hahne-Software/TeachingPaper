@@ -21,6 +21,8 @@ export const unsupportedBlockType = defineBlockType<UnsupportedData>({
   icon: null,
   defaultData: () => ({ name: '', xml: '' }),
   View: UnsupportedView,
+  // Prints as empty space: the placed Block keeps its height.
+  ExportView: () => null,
   PropertiesView: () => (
     <p className="muted">This Block cannot be edited in this version.</p>
   ),

@@ -51,6 +51,10 @@ export const layout = (heights: number[]) => {
   };
 };
 
+/** A Block's top offset within its own Page, rather than within the whole stack of Pages. */
+export const offsetInPage = ({ page, top }: Placement) =>
+  top - page * (PAGE_HEIGHT + PAGE_GAP);
+
 export type PageLayout = ReturnType<typeof layout>;
 
 /** Screen position of the line marking where a dropped Block would go. */

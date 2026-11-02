@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { singleLine } from '../worksheet/single-line';
 import {
   defineBlockType,
+  type BlockExportProps,
   type BlockPropertiesProps,
   type BlockViewProps,
 } from './types';
@@ -55,6 +56,18 @@ function HeadingView({
   );
 }
 
+function HeadingExport({ data }: BlockExportProps<HeadingData>) {
+  return (
+    <div
+      role="heading"
+      aria-level={data.level}
+      className={`heading heading-level-${data.level}`}
+    >
+      {data.text}
+    </div>
+  );
+}
+
 const headingLevels: HeadingData['level'][] = [1, 2, 3];
 
 function HeadingProperties({
@@ -89,5 +102,6 @@ export const headingBlockType = defineBlockType<HeadingData>({
   icon: <span aria-hidden="true">H</span>,
   defaultData: () => ({ text: '', level: 1 }),
   View: HeadingView,
+  ExportView: HeadingExport,
   PropertiesView: HeadingProperties,
 });

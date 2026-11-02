@@ -146,5 +146,7 @@ export const bodyTextBlockType = defineBlockType<BodyTextData>({
   icon: <span aria-hidden="true">¶</span>,
   defaultData: () => ({ paragraphs: [[]] }),
   View: BodyTextView,
+  // Renders nothing until Body Text gets its export view.
+  ExportView: () => null,
   PropertiesView: BodyTextProperties,
 });

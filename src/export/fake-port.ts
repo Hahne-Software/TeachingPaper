@@ -1,0 +1,37 @@
+import type { FileRef } from '../worksheet-file/port';
+import type { ExportPort } from './port';
+
+/** In-memory ExportPort for tests: queue dialog answers, then inspect what was asked and printed. */
+export const createFakeExportPort = () => {
+  const nextAnswer: (string | null)[] = [];
+  const failures: string[] = [];
+  const fake = {
+    /** Every save dialog that was shown, with the name it suggested. */
+    dialogs: [] as { suggestedName: string; format: string }[],
+    /** Every call to `printToPdf`. */
+    printed: [] as { html: string; target: string }[],
+    /** The next save dialog picks this file name (null cancels). */
+    answerDialog: (name: string | null) => void nextAnswer.push(name),
+    /** The next `printToPdf` fails with this message. */
+    failNextPrint: (message: string) => void failures.push(message),
+    /** The latest export document, parsed. */
+    lastDocument: () => {
+      const last = fake.printed[fake.printed.length - 1];
+      if (!last) throw new Error('nothing was exported');
+      return new DOMParser().parseFromString(last.html, 'text/html');
+    },
+  };
+  const port: ExportPort = {
+    showExportDialog: async (suggestedName, format) => {
+      fake.dialogs.push({ suggestedName, format: format.label });
+      const name = nextAnswer.shift() ?? null;
+      return name === null ? null : ({ name } satisfies FileRef);
+    },
+    printToPdf: async (html, target) => {
+      const failure = failures.shift();
+      if (failure !== undefined) throw new Error(failure);
+      fake.printed.push({ html, target: target.name });
+    },
+  };
+  return { port, fake };
+};

@@ -1,0 +1,21 @@
+/* Block styles shared by the editor and the export document. */
+.heading {
+  margin: 0;
+  outline: none;
+  overflow-wrap: anywhere;
+}
+
+.heading-level-1 {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.heading-level-2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.heading-level-3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
