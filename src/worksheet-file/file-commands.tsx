@@ -37,9 +37,12 @@ const shortcutCommand = (event: KeyboardEvent) => {
 export function FileCommands({
   port,
   menuEvents,
+  onFileChange,
 }: {
   port: FilePort;
   menuEvents: MenuEvents;
+  /** Told whenever the current Worksheet File changes (null: none yet). */
+  onFileChange?: (file: FileRef | null) => void;
 }) {
   const { state, dispatch } = useWorksheet();
   const [file, setFile] = useState<FileRef | null>(null);
@@ -47,6 +50,8 @@ export function FileCommands({
   useEffect(() => {
     latest.current = { state, file };
   });
+
+  useEffect(() => onFileChange?.(file), [file, onFileChange]);
 
   const title = windowTitle(file?.name ?? null, hasUnsavedChanges(state));
   useEffect(() => port.setWindowTitle(title), [port, title]);

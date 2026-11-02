@@ -53,6 +53,12 @@ pub fn run() {
                         .build(handle)?,
                 )
                 .separator()
+                .item(
+                    &MenuItemBuilder::with_id("file-export-pdf", "Export as PDF…")
+                        .accelerator("CmdOrCtrl+E")
+                        .build(handle)?,
+                )
+                .separator()
                 .item(&PredefinedMenuItem::close_window(handle, None)?)
                 // Not the predefined Quit: it exits without a close request, so unsaved
                 // changes would be lost without asking.
