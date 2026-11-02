@@ -19,3 +19,22 @@
   font-size: 1.25rem;
   font-weight: 700;
 }
+
+.body-text {
+  min-height: 1.5em;
+}
+
+.body-text .tiptap,
+.body-text .body-text-content {
+  outline: none;
+  overflow-wrap: anywhere;
+  white-space: break-spaces;
+}
+
+.body-text p {
+  margin: 0 0 0.5em;
+}
+
+.body-text p:last-child {
+  margin-bottom: 0;
+}

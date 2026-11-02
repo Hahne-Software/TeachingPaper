@@ -113,21 +113,7 @@ body,
 }
 
 .body-text {
-  min-height: 1.5em;
   cursor: text;
-}
-
-.body-text .tiptap {
-  outline: none;
-  overflow-wrap: anywhere;
-}
-
-.body-text .tiptap p {
-  margin: 0 0 0.5em;
-}
-
-.body-text .tiptap p:last-child {
-  margin-bottom: 0;
 }
 
 .body-text .tiptap p.is-empty::before {
