@@ -134,6 +134,44 @@ describe('Export as PDF', () => {
       expect(doc.querySelector('[data-placeholder]')).toBeNull();
     });
 
+    it('puts Body Text on the editor Page and offset with paragraphs, marks and line breaks', async () => {
+      const app = renderApp();
+      heights.push(300);
+      await userEvent.click(screen.getByRole('button', { name: 'Body Text' }));
+      const editor = await screen.findByRole('textbox', { name: 'Body Text' });
+      await waitFor(() => expect(editor).toHaveFocus());
+      await userEvent.keyboard(
+        '{Control>}b{/Control}Bold{Control>}b{/Control} plain{Shift>}{Enter}{/Shift}next{Enter}{Control>}i{/Control}Second',
+      );
+      const block = document.querySelector<HTMLElement>('.block')!;
+      expect(block.dataset.page).toBe('0');
+      const top = parseFloat(block.style.top);
+
+      const doc = await exportDocument(app);
+
+      const exported =
+        pagesOf(doc)[0].querySelector<HTMLElement>('.export-block')!;
+      expect(parseFloat(exported.style.top)).toBe(top);
+      expect(exported.style.height).toBe('300px');
+      const paragraphs = Array.from(exported.querySelectorAll('p'));
+      expect(paragraphs.map((p) => p.innerHTML)).toEqual([
+        '<strong>Bold</strong> plain<br>next',
+        '<em>Second</em>',
+      ]);
+      expect(exported.querySelector('[contenteditable]')).toBeNull();
+    });
+
+    it('exports empty Body Text as empty space without placeholder', async () => {
+      const app = renderApp();
+      await userEvent.click(screen.getByRole('button', { name: 'Body Text' }));
+      const doc = await exportDocument(app);
+      const exported = doc.querySelector('.export-block')!;
+      expect(exported.querySelector('.body-text')).not.toBeNull();
+      expect(exported.textContent).toBe('');
+      expect(exported.innerHTML).not.toContain('data-placeholder');
+      expect(exported.innerHTML).not.toContain('Enter text');
+    });
+
     it('contains no editor chrome or hints', async () => {
       const app = renderApp();
       await addHeading('Rome');

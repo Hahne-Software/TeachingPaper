@@ -8,13 +8,24 @@ import { Underline } from '@tiptap/extension-underline';
 import { Placeholder, UndoRedo } from '@tiptap/extensions';
 import { EditorContent, useEditor } from '@tiptap/react';
 import type { Editor } from '@tiptap/core';
-import { useEffect, useSyncExternalStore } from 'react';
+import {
+  Fragment,
+  useEffect,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
 import {
   fromTiptapDoc,
   toTiptapDoc,
+  normalizeRuns,
   type BodyTextData,
+  type TextRun,
 } from './body-text-format';
-import { defineBlockType, type BlockViewProps } from './types';
+import {
+  defineBlockType,
+  type BlockExportProps,
+  type BlockViewProps,
+} from './types';
 
 // Only paragraphs, line breaks and the three marks exist in the schema, so anything else
 // (lists, links, colours, alignment) is dropped on paste.
@@ -104,6 +115,44 @@ function BodyTextView({
   );
 }
 
+const markup = (run: TextRun, content: ReactNode): ReactNode => {
+  const withBold = run.bold ? <strong>{content}</strong> : content;
+  const withItalic = run.italic ? <em>{withBold}</em> : withBold;
+  return run.underline ? <u>{withItalic}</u> : withItalic;
+};
+
+const runNodes = (run: TextRun, key: number) =>
+  run.text
+    .split('\n')
+    .flatMap((line, index) => [
+      ...(index > 0 ? [<br key={`${key}-br-${index}`} />] : []),
+      ...(line !== ''
+        ? [<Fragment key={`${key}-${index}`}>{markup(run, line)}</Fragment>]
+        : []),
+    ]);
+
+/** Same structure as the Tiptap editor output, without Tiptap, so line and Page breaks match. */
+function BodyTextExport({ data }: BlockExportProps<BodyTextData>) {
+  return (
+    <div className="body-text">
+      <div className="body-text-content">
+        {data.paragraphs.map((runs, index) => {
+          const normalized = normalizeRuns(runs);
+          const last = normalized[normalized.length - 1];
+          // The editor keeps a trailing <br> in an empty paragraph or one ending in a line break.
+          const needsTrailingBreak = !last || last.text.endsWith('\n');
+          return (
+            <p key={index}>
+              {normalized.flatMap(runNodes)}
+              {needsTrailingBreak && <br />}
+            </p>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 const formats = [
   { mark: 'bold', label: 'Bold', glyph: <b>B</b> },
   { mark: 'italic', label: 'Italic', glyph: <i>I</i> },
@@ -146,7 +195,6 @@ export const bodyTextBlockType = defineBlockType<BodyTextData>({
   icon: <span aria-hidden="true">¶</span>,
   defaultData: () => ({ paragraphs: [[]] }),
   View: BodyTextView,
-  // Renders nothing until Body Text gets its export view.
-  ExportView: () => null,
+  ExportView: BodyTextExport,
   PropertiesView: BodyTextProperties,
 });
