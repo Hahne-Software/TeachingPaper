@@ -8,6 +8,7 @@
 
 ## Commands
 
+- `pnpm`, `node` and `cargo` exist only inside the Nix shell: run every command, `git commit` included (the pre-commit hook calls `pnpm`), as `nix develop --command bash -c '<command>'`
 - use `pnpm tauri dev` to run the app locally
 - `pnpm test` (Vitest), `pnpm typecheck` and `pnpm lint`; `pnpm format` fixes formatting. The pre-commit hook and CI run all of them; CI also runs `cargo fmt --check`, `clippy` and `cargo test` in `src-tauri/`.
 - UI changes: verify in the browser against `pnpm dev` (port 1420) before reporting done, and read a WebKitGTK screenshot of each changed state; the Tauri shell is not needed. Read `docs/agents/browser-verification.md` first.

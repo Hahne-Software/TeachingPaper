@@ -67,7 +67,7 @@ _Avoid_: Schema version, file version
 
 **Export**:
 Producing a file in another format from a Worksheet, for printing or sharing; the Worksheet File stays unchanged.
-_Avoid_: Print, render, save as
+_Avoid_: Print, render, save as (naming the PDF mechanism, such as `printToPdf`, is fine: it is how the PDF Export Format writes its file)
 
 **Export Format**:
 A target format of an Export, such as PDF or HTML.
