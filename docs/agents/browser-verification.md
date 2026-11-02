@@ -12,6 +12,16 @@ Run `pnpm verify:ui <steps-file.mjs> <out-dir>`. It starts `pnpm dev` when port 
 
 `exec` runs its text as a function body, so a result needs `return` (`exec('return document.title')`). `key('Rome')` types text key by key; `chord` holds keys together (`chord('\uE008', '\uE007')` is Shift+Enter in the focused element). App shortcuts listen on `window`: dispatch `new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true })` there through `exec`. Native file dialogs cannot be driven: call `files.stub()` after each page load, then `files.offer(bytes)` answers the next Open and `files.saved()` returns the bytes of the last Save (`files.savedXml()` its `worksheet.xml`). `confirm` and `alert` block WebDriver: call `dialogs.stub()` after each page load, queue answers with `dialogs.answer(true, false)` and read the messages with `dialogs.asked()`. `paste(text)` pastes into the focused element, line breaks included; clipboard shortcuts cannot reach the clipboard.
 
+## Export view against editor view
+
+An Export view must be as high as the editor view of the same Block (ADR-0001). `docs/agents/examples/export-height.mjs` types representative Body Text, renders `ExportView` next to it and compares both heights; copy it and adapt the typing. The mechanics it relies on:
+
+- `exec` is synchronous: start async work with `window.__result = …` inside it, `sleep`, then read the value with a second `exec`.
+- Import app modules and Vite's pre-bundled libraries with `import('/src/blocks/body-text.tsx')` and `import('/node_modules/.vite/deps/react-dom_server.js')`; read `m.default ?? m` where the export may sit on `default`.
+- A Tiptap editor is reachable as `document.querySelector('.tiptap').editor`.
+- Marks: dispatch `keydown` with `ctrlKey` on `document.activeElement`. Line break: `chord('\uE008', '\uE007')`.
+- `shot` the editor and the export view, and read both screenshots.
+
 ## Firefox (no browser tool connected)
 
 1. Install `puppeteer-core` in the scratchpad directory, never in the repo (`PUPPETEER_SKIP_DOWNLOAD=1 npm i puppeteer-core`).
