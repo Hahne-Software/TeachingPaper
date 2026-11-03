@@ -1,4 +1,6 @@
 mod atomic_write;
+mod pdf_export;
+mod pdf_print;
 
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 use tauri::{Emitter, Manager};
@@ -11,7 +13,8 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
             atomic_write::write_file_atomic,
-            atomic_write::file_exists
+            atomic_write::file_exists,
+            pdf_export::export_pdf
         ])
         .setup(|app| {
             let handle = app.handle();

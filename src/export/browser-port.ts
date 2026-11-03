@@ -19,12 +19,3 @@ export const createBrowserExportPort = (): ExportPort => ({
     win.print();
   },
 });
-
-/** Stand-in for the desktop app until its native print-to-PDF exists. */
-export const createUnavailableExportPort = (): ExportPort => ({
-  confirmExportProblems: async () => true,
-  showExportDialog: async (suggestedName) => ({ name: suggestedName }),
-  printToPdf: async () => {
-    throw new Error('Exporting is not available in the desktop app yet.');
-  },
-});
