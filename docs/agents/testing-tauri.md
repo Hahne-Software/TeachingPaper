@@ -17,3 +17,11 @@ Rust lives in `src-tauri/`. Run `cargo fmt`, `cargo clippy --all-targets -- -D w
 Test the Tauri `FilePort` (`src/worksheet-file/tauri-port.ts`) with `vi.mock` on `@tauri-apps/api/*` and `@tauri-apps/plugin-*`. `getCurrentWindow().setTitle` must return a promise in the mock.
 
 Native dialogs, the window title and the real file system cannot be driven automatically. Verify them by hand under `pnpm tauri dev` and say in the PR that it was manual.
+
+## Native PDF Export
+
+`export_pdf` (`src-tauri/src/pdf_export.rs`) stages the export document, loads it into a hidden window and prints through `pdf_print.rs`. `cargo test` covers the staging, path errors and the replace-only-with-a-PDF rule; the printing itself needs a real WebView on each platform, so check it from an on-demand `release.yml` build.
+
+- Create the hidden window from an `async` command: on Windows, creating windows on the main thread deadlocks.
+- An external page has no IPC, so "fonts loaded" is signalled through the document title (`document.fonts.ready`), which is restored before printing because it becomes the PDF title.
+- macOS has no delegate callback yet: completion is detected by the output file being a PDF that stops growing.
