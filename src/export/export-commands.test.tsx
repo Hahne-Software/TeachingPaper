@@ -2,6 +2,8 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { strToU8, zipSync } from 'fflate';
+import { MEDIA_TYPE } from '../worksheet-file/codec';
 import { renderApp } from '../test/render-app';
 
 // jsdom does not measure, so each Block reports the height queued here (default 100).
@@ -221,5 +223,90 @@ describe('Export as PDF', () => {
     expect(fake.errors[0]).toContain('Could not export');
     expect(fake.errors[0]).toContain('disk full');
     expect(document.querySelector('.heading')?.textContent).toBe('Rome');
+  });
+
+  describe('pre-export notice', () => {
+    const NS = 'https://hahne.software/ns/teachingpaper/worksheet';
+    const openWithUnsupported = async (app: ReturnType<typeof renderApp>) => {
+      const bytes = zipSync({
+        mimetype: [strToU8(MEDIA_TYPE), { level: 0 }],
+        'worksheet.xml': strToU8(
+          `<worksheet xmlns="${NS}" version="1.1"><blocks><map zoom="3"/></blocks></worksheet>`,
+        ),
+      });
+      app.fake.files.set('a.tpsheet', bytes);
+      app.fake.answerOpen('a.tpsheet');
+      await app.menu('open-file');
+      await screen.findByRole('note');
+    };
+
+    it('lists oversized Blocks before the save dialog', async () => {
+      const app = renderApp();
+      await addHeading('Tall', 2000);
+      app.exportFake.answerNotice(false);
+      await app.menu('file-export-pdf');
+      expect(app.exportFake.notices).toEqual([{ cutOff: 1, unsupported: 0 }]);
+    });
+
+    it('lists Unsupported Blocks before the save dialog', async () => {
+      const app = renderApp();
+      await openWithUnsupported(app);
+      app.exportFake.answerNotice(false);
+      await app.menu('file-export-pdf');
+      expect(app.exportFake.notices).toEqual([{ cutOff: 0, unsupported: 1 }]);
+    });
+
+    it('shows one notice for both problems together', async () => {
+      const app = renderApp();
+      await openWithUnsupported(app);
+      heights.push(100); // the Unsupported Block comes first
+      await addHeading('Tall', 2000);
+      app.exportFake.answerNotice(false);
+      await app.menu('file-export-pdf');
+      expect(app.exportFake.notices).toEqual([{ cutOff: 1, unsupported: 1 }]);
+    });
+
+    it('exports nothing and asks no save dialog on Cancel', async () => {
+      const app = renderApp();
+      await addHeading('Tall', 2000);
+      app.exportFake.answerNotice(false);
+      await app.menu('file-export-pdf');
+      expect(app.exportFake.dialogs).toEqual([]);
+      expect(app.exportFake.printed).toEqual([]);
+    });
+
+    it('continues the normal flow on Export anyway', async () => {
+      const app = renderApp();
+      await addHeading('Tall', 2000);
+      app.exportFake.answerNotice(true);
+      app.exportFake.answerDialog('tall.pdf');
+      await app.menu('file-export-pdf');
+      await waitFor(() => expect(app.exportFake.printed).toHaveLength(1));
+      expect(app.exportFake.dialogs).toHaveLength(1);
+    });
+
+    it('shows no notice without such Blocks', async () => {
+      const app = renderApp();
+      await addHeading('Fits');
+      app.exportFake.answerDialog('fits.pdf');
+      await app.menu('file-export-pdf');
+      await waitFor(() => expect(app.exportFake.printed).toHaveLength(1));
+      expect(app.exportFake.notices).toEqual([]);
+    });
+  });
+
+  describe('export document problems', () => {
+    it('clips an oversized Block to the content area without the warning', async () => {
+      const app = renderApp();
+      await addHeading('Tall', 2000);
+      app.exportFake.answerNotice(true);
+      app.exportFake.answerDialog('tall.pdf');
+      await app.menu('file-export-pdf');
+      await waitFor(() => expect(app.exportFake.printed).toHaveLength(1));
+      const doc = app.exportFake.lastDocument();
+      const block = doc.querySelector<HTMLElement>('.export-block')!;
+      expect(parseFloat(block.style.height)).toBeLessThan(2000);
+      expect(doc.querySelector('.block-warning, [role=alert]')).toBeNull();
+    });
   });
 });
