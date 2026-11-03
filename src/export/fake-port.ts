@@ -1,15 +1,21 @@
 import type { FileRef } from '../worksheet-file/port';
-import type { ExportPort } from './port';
+import type { ExportPort, ExportProblems } from './port';
 
 /** In-memory ExportPort for tests: queue dialog answers, then inspect what was asked and printed. */
 export const createFakeExportPort = () => {
   const nextAnswer: (string | null)[] = [];
   const failures: string[] = [];
+  const noticeAnswers: boolean[] = [];
   const fake = {
     /** Every save dialog that was shown, with the name it suggested. */
     dialogs: [] as { suggestedName: string; format: string }[],
     /** Every call to `printToPdf`. */
     printed: [] as { html: string; target: string }[],
+    /** Every pre-export notice that was shown. */
+    notices: [] as ExportProblems[],
+    /** The next pre-export notice is answered with Export anyway (true) or Cancel (false). */
+    answerNotice: (exportAnyway: boolean) =>
+      void noticeAnswers.push(exportAnyway),
     /** The next save dialog picks this file name (null cancels). */
     answerDialog: (name: string | null) => void nextAnswer.push(name),
     /** The next `printToPdf` fails with this message. */
@@ -22,6 +28,10 @@ export const createFakeExportPort = () => {
     },
   };
   const port: ExportPort = {
+    confirmExportProblems: async (problems) => {
+      fake.notices.push(problems);
+      return noticeAnswers.shift() ?? false;
+    },
     showExportDialog: async (suggestedName, format) => {
       fake.dialogs.push({ suggestedName, format: format.label });
       const name = nextAnswer.shift() ?? null;

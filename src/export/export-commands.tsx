@@ -4,7 +4,8 @@ import type { WorksheetMetadata } from '../worksheet/metadata';
 import type { MenuEvents } from '../worksheet-file/file-commands';
 import { buildExportDocument } from './document';
 import { exportFormats, type ExportFormat } from './formats';
-import type { ExportPort } from './port';
+import type { ExportPort, ExportProblems } from './port';
+import { UNSUPPORTED_BLOCK } from '../worksheet/unsupported';
 import type { FilePort } from '../worksheet-file/port';
 
 const DEFAULT_NAME = 'Worksheet';
@@ -52,6 +53,19 @@ export function ExportCommands({
 
   const exportAs = useCallback(
     async (format: ExportFormat) => {
+      const layout = getPageLayout();
+      const isUnsupported = (index: number) =>
+        state.blocks[index]?.type === UNSUPPORTED_BLOCK;
+      // An Unsupported Block prints empty, so there is nothing left to cut off.
+      const problems: ExportProblems = {
+        cutOff: [...layout.oversized].filter((i) => !isUnsupported(i)).length,
+        unsupported: state.blocks.filter((_, i) => isUnsupported(i)).length,
+      };
+      if (
+        (problems.cutOff > 0 || problems.unsupported > 0) &&
+        !(await port.confirmExportProblems(problems))
+      )
+        return;
       const target = await port.showExportDialog(
         suggestedExportName(fileName, state.metadata, format),
         format,
@@ -61,7 +75,7 @@ export function ExportCommands({
         const document = buildExportDocument({
           metadata: state.metadata,
           blocks: state.blocks,
-          layout: getPageLayout(),
+          layout,
         });
         await format.write(document, target, port);
       } catch (error) {
