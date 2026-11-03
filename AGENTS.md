@@ -24,6 +24,7 @@
 ## Branching & releases
 
 - Trunk-based: `main` is always working and protected (PR + green CI required)
+- Compare against `origin/main` (after `git fetch`) for reviews and diffs: the local `main` can lag behind it
 - Work in short-lived branches off `main`, merged via PR (squash): `feat/<name>`, `fix/<name>`, `docs/<name>`, `chore/<name>`
 - Commits follow Conventional Commits (`feat(app): ...`)
 - PR titles are Conventional Commits too (checked by `pr-title.yml`): the type becomes a label that sorts the PR into the release notes; scope `dev` (developer tooling) is left out of them; create the PR with `gh pr create` and no `--label`, because the workflow sets the label (a `--label` that does not exist aborts the creation)

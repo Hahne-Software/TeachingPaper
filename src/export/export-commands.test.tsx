@@ -4,7 +4,9 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { renderApp } from '../test/render-app';
 
-// jsdom does not measure, so each Block reports the height queued here (default 100).
+// jsdom does not measure, so each Block reports the height queued here (default 100). The queue
+// is indexed by Block position: a Block that is already in the Worksheet (an Unsupported Block
+// from an opened file) takes index 0, so push its height first.
 let heights: number[] = [];
 
 beforeEach(() => {
