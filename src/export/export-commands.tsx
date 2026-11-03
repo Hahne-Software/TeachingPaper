@@ -54,10 +54,12 @@ export function ExportCommands({
   const exportAs = useCallback(
     async (format: ExportFormat) => {
       const layout = getPageLayout();
+      const isUnsupported = (index: number) =>
+        state.blocks[index]?.type === UNSUPPORTED_BLOCK;
+      // An Unsupported Block prints empty, so there is nothing left to cut off.
       const problems: ExportProblems = {
-        cutOff: layout.oversized.size,
-        unsupported: state.blocks.filter((b) => b.type === UNSUPPORTED_BLOCK)
-          .length,
+        cutOff: [...layout.oversized].filter((i) => !isUnsupported(i)).length,
+        unsupported: state.blocks.filter((_, i) => isUnsupported(i)).length,
       };
       if (
         (problems.cutOff > 0 || problems.unsupported > 0) &&

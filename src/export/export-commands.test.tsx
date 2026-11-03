@@ -267,6 +267,15 @@ describe('Export as PDF', () => {
       expect(app.exportFake.notices).toEqual([{ cutOff: 1, unsupported: 1 }]);
     });
 
+    it('counts an oversized Unsupported Block only as Unsupported', async () => {
+      const app = renderApp();
+      heights.push(2000);
+      await openWithUnsupported(app);
+      app.exportFake.answerNotice(false);
+      await app.menu('file-export-pdf');
+      expect(app.exportFake.notices).toEqual([{ cutOff: 0, unsupported: 1 }]);
+    });
+
     it('exports nothing and asks no save dialog on Cancel', async () => {
       const app = renderApp();
       await addHeading('Tall', 2000);
