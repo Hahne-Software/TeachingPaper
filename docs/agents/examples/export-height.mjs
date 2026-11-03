@@ -23,19 +23,19 @@ export default async ({ exec, key, chord, shot, sleep }) => {
   await mark(exec, 'u');
   await key(' underlined');
   await mark(exec, 'u');
-  await chord('', '');
+  await chord('\uE008', '\uE007');
   await key('after a line break');
-  await chord('', '');
-  await chord('', '');
+  await chord('\uE008', '\uE007');
+  await chord('\uE008', '\uE007');
   await key('two breaks');
-  await key('');
+  await key('\uE007');
   await key('Second paragraph');
-  await key('');
-  await key('');
+  await key('\uE007');
+  await key('\uE007');
   await key(
     'Averyveryverylongwordwithoutanyspacesthatmustbreakanywhereinsidethecolumnbecauseitistoolongtofit and then end.',
   );
-  await chord('', '');
+  await chord('\uE008', '\uE007');
   await sleep(300);
   await exec(`(async () => {
     const renderToStaticMarkup = (m => m.renderToStaticMarkup ?? m.default.renderToStaticMarkup)(await import('/node_modules/.vite/deps/react-dom_server.js'));
