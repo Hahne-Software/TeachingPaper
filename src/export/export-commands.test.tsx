@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { strToU8, zipSync } from 'fflate';
 import { MEDIA_TYPE } from '../worksheet-file/codec';
+import { PAGE_CONTENT_HEIGHT } from '../worksheet/page-format';
 import { renderApp } from '../test/render-app';
 
 // jsdom does not measure, so each Block reports the height queued here (default 100).
@@ -38,6 +39,20 @@ const setLevel = (level: number) =>
   userEvent.click(screen.getByRole('button', { name: String(level) }));
 const setTitle = (title: string) =>
   userEvent.type(screen.getByLabelText('Title'), title);
+
+const NS = 'https://hahne.software/ns/teachingpaper/worksheet';
+const openWithUnsupported = async (app: ReturnType<typeof renderApp>) => {
+  const bytes = zipSync({
+    mimetype: [strToU8(MEDIA_TYPE), { level: 0 }],
+    'worksheet.xml': strToU8(
+      `<worksheet xmlns="${NS}" version="1.1"><blocks><map zoom="3"/></blocks></worksheet>`,
+    ),
+  });
+  app.fake.files.set('a.tpsheet', bytes);
+  app.fake.answerOpen('a.tpsheet');
+  await app.menu('open-file');
+  await screen.findByRole('note');
+};
 
 describe('Export as PDF', () => {
   it('starts from the File menu and from Ctrl+E', async () => {
@@ -226,20 +241,6 @@ describe('Export as PDF', () => {
   });
 
   describe('pre-export notice', () => {
-    const NS = 'https://hahne.software/ns/teachingpaper/worksheet';
-    const openWithUnsupported = async (app: ReturnType<typeof renderApp>) => {
-      const bytes = zipSync({
-        mimetype: [strToU8(MEDIA_TYPE), { level: 0 }],
-        'worksheet.xml': strToU8(
-          `<worksheet xmlns="${NS}" version="1.1"><blocks><map zoom="3"/></blocks></worksheet>`,
-        ),
-      });
-      app.fake.files.set('a.tpsheet', bytes);
-      app.fake.answerOpen('a.tpsheet');
-      await app.menu('open-file');
-      await screen.findByRole('note');
-    };
-
     it('lists oversized Blocks before the save dialog', async () => {
       const app = renderApp();
       await addHeading('Tall', 2000);
@@ -269,6 +270,15 @@ describe('Export as PDF', () => {
     it('exports nothing and asks no save dialog on Cancel', async () => {
       const app = renderApp();
       await addHeading('Tall', 2000);
+      app.exportFake.answerNotice(false);
+      await app.menu('file-export-pdf');
+      expect(app.exportFake.dialogs).toEqual([]);
+      expect(app.exportFake.printed).toEqual([]);
+    });
+
+    it('exports nothing on Cancel for Unsupported Blocks too', async () => {
+      const app = renderApp();
+      await openWithUnsupported(app);
       app.exportFake.answerNotice(false);
       await app.menu('file-export-pdf');
       expect(app.exportFake.dialogs).toEqual([]);
@@ -305,8 +315,55 @@ describe('Export as PDF', () => {
       await waitFor(() => expect(app.exportFake.printed).toHaveLength(1));
       const doc = app.exportFake.lastDocument();
       const block = doc.querySelector<HTMLElement>('.export-block')!;
-      expect(parseFloat(block.style.height)).toBeLessThan(2000);
+      expect(parseFloat(block.style.height)).toBe(PAGE_CONTENT_HEIGHT);
       expect(doc.querySelector('.block-warning, [role=alert]')).toBeNull();
+    });
+
+    it('prints an Unsupported Block empty in its space and keeps following Blocks in place', async () => {
+      const app = renderApp();
+      await openWithUnsupported(app);
+      heights.push(100);
+      await addHeading('After');
+      const editor = Array.from(
+        document.querySelectorAll<HTMLElement>('.block'),
+      ).map((block) => ({
+        page: block.dataset.page,
+        top: parseFloat(block.style.top),
+      }));
+      app.exportFake.answerNotice(true);
+      app.exportFake.answerDialog('out.pdf');
+      await app.menu('file-export-pdf');
+      await waitFor(() => expect(app.exportFake.printed).toHaveLength(1));
+      const exported = Array.from(
+        app.exportFake
+          .lastDocument()
+          .querySelectorAll<HTMLElement>('.export-block'),
+      );
+      expect(exported).toHaveLength(2);
+      expect(exported[0].textContent).toBe('');
+      expect(exported[0].innerHTML).toBe('');
+      expect(parseFloat(exported[0].style.top)).toBe(editor[0].top);
+      expect(parseFloat(exported[0].style.height)).toBe(100);
+      expect(exported[1].textContent).toBe('After');
+      expect(parseFloat(exported[1].style.top)).toBe(editor[1].top);
+    });
+
+    it('puts Blocks after an oversized Block on the editor Page and offset', async () => {
+      const app = renderApp();
+      await addHeading('Tall', 2000);
+      await addHeading('After');
+      const after = document.querySelectorAll<HTMLElement>('.block')[1];
+      app.exportFake.answerNotice(true);
+      app.exportFake.answerDialog('out.pdf');
+      await app.menu('file-export-pdf');
+      await waitFor(() => expect(app.exportFake.printed).toHaveLength(1));
+      const pages = Array.from(
+        app.exportFake.lastDocument().querySelectorAll('.export-page'),
+      );
+      expect(after.dataset.page).toBe('1');
+      expect(pages[1].querySelector('.export-block')?.textContent).toBe(
+        'After',
+      );
     });
   });
 });
