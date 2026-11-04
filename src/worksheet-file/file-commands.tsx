@@ -3,17 +3,34 @@ import { useWorksheet } from '../worksheet/context';
 import { emptyMetadata } from '../worksheet/metadata';
 import { hasUnsavedChanges } from '../worksheet/reducer';
 import { encodeWorksheet, readWorksheet } from './codec';
+import {
+  fileFlow,
+  initialFileState,
+  isBusy,
+  UNTITLED,
+  type FileCommand,
+  type FileEffect,
+  type FileEvent,
+} from './file-flow';
 import type { FilePort, FileRef } from './port';
 
 export const APP_NAME = 'TeachingPaper';
-export const DEFAULT_FILE_NAME = 'Worksheet.tpsheet';
-export const UNTITLED = 'Untitled';
 
 /** The window title: the file name, or Untitled before the first save, marked while there are Unsaved Changes. */
 export const windowTitle = (fileName: string | null, unsaved: boolean) =>
   `${unsaved ? '• ' : ''}${fileName ?? UNTITLED} — ${APP_NAME}`;
 
 export type MenuEvents = (handler: (id: string) => void) => () => void;
+
+const reasonOf = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
+
+const COMMANDS: Record<string, FileCommand> = {
+  'file-new': 'new',
+  'open-file': 'open',
+  'file-save': 'save',
+  'file-save-as': 'save-as',
+};
 
 const shortcutCommand = (event: KeyboardEvent) => {
   if (!(event.ctrlKey || event.metaKey) || event.altKey) return null;
@@ -31,8 +48,9 @@ const shortcutCommand = (event: KeyboardEvent) => {
 
 /**
  * New, Open, Save and Save As for the Worksheet in the surrounding provider. Renders nothing; it
- * remembers the current file, keeps the window title in step, asks about Unsaved Changes before
- * they would be lost and listens for menu events and keyboard shortcuts.
+ * runs the `fileFlow` state machine (performing its effects through the port), keeps the window
+ * title in step, asks about Unsaved Changes before they would be lost and listens for menu events
+ * and keyboard shortcuts.
  */
 export function FileCommands({
   port,
@@ -46,107 +64,112 @@ export function FileCommands({
 }) {
   const { state, dispatch } = useWorksheet();
   const [file, setFile] = useState<FileRef | null>(null);
-  const latest = useRef({ state, file });
+  const latest = useRef({ state });
   useEffect(() => {
-    latest.current = { state, file };
+    latest.current = { state };
   });
+  const flow = useRef(initialFileState);
+  const answerClose = useRef<((allowed: boolean) => void) | null>(null);
 
   useEffect(() => onFileChange?.(file), [file, onFileChange]);
 
   const title = windowTitle(file?.name ?? null, hasUnsavedChanges(state));
   useEffect(() => port.setWindowTitle(title), [port, title]);
 
-  const fail = useCallback(
-    (title: string, subject: string, error: unknown) =>
-      port.showError(
-        title,
-        `${subject}. ${error instanceof Error ? error.message : String(error)}`,
-      ),
-    [port],
-  );
-
-  /**
-   * Each resolves true when the Worksheet ended up in a file, false when a dialog was cancelled or
-   * the write failed (which is reported and leaves the Worksheet unsaved).
-   */
-  const writeTo = useCallback(
-    async (target: FileRef) => {
-      const { metadata, blocks, retained } = latest.current.state;
-      try {
-        await port.writeBytes(
-          target,
-          encodeWorksheet({
-            metadata,
-            blocks: blocks.map(({ type, data }) => ({ type, data })),
-            retained,
-          }),
-        );
-      } catch (error) {
-        await fail('Could not save', `Could not save ${target.name}`, error);
-        return false;
+  const perform = useCallback(
+    (effect: FileEffect, send: (event: FileEvent) => void) => {
+      switch (effect.type) {
+        case 'ask-to-save':
+          return void port
+            .askToSaveChanges(effect.name)
+            .then((answer) => send({ type: 'answered', answer }));
+        case 'show-save-dialog':
+          return void port
+            .showSaveDialog(effect.suggestedName)
+            .then((target) => send({ type: 'location-chosen', target }));
+        case 'show-open-dialog':
+          return void port
+            .showOpenDialog()
+            .then((chosen) => send({ type: 'file-chosen', chosen }));
+        case 'write': {
+          const { metadata, blocks, retained } = latest.current.state;
+          return void Promise.resolve()
+            .then(() =>
+              port.writeBytes(
+                effect.target,
+                encodeWorksheet({
+                  metadata,
+                  blocks: blocks.map(({ type, data }) => ({ type, data })),
+                  retained,
+                }),
+              ),
+            )
+            .then(
+              () => {
+                // Edits made while writing stay Unsaved Changes: only the written content counts as saved.
+                dispatch({ type: 'saved', content: { metadata, blocks } });
+                send({ type: 'written' });
+              },
+              (error) =>
+                send({ type: 'write-failed', reason: reasonOf(error) }),
+            );
+        }
+        case 'read':
+          return void port.readBytes(effect.file).then(
+            (bytes) => {
+              const result = readWorksheet(bytes);
+              send(
+                result.ok
+                  ? { type: 'read', worksheet: result.worksheet }
+                  : { type: 'read-failed', reason: result.reason },
+              );
+            },
+            (error) => send({ type: 'read-failed', reason: reasonOf(error) }),
+          );
+        case 'replace-worksheet':
+          return dispatch({
+            type: 'replace',
+            ...(effect.worksheet ?? { metadata: emptyMetadata, blocks: [] }),
+          });
+        case 'show-error':
+          return void port
+            .showError(effect.title, effect.message)
+            .catch((error) => console.error(error));
+        case 'allow-close':
+          return answerClose.current?.(effect.allowed);
       }
-      // Edits made while writing stay Unsaved Changes: only the written content counts as saved.
-      dispatch({ type: 'saved', content: { metadata, blocks } });
-      setFile(target);
-      return true;
     },
-    [port, dispatch, fail],
+    [port, dispatch],
   );
 
-  const saveAs = useCallback(async () => {
-    const target = await port.showSaveDialog(
-      latest.current.file?.name ?? DEFAULT_FILE_NAME,
-    );
-    return target ? writeTo(target) : false;
-  }, [port, writeTo]);
-
-  const save = useCallback(async () => {
-    const { file: current } = latest.current;
-    return current ? writeTo(current) : saveAs();
-  }, [saveAs, writeTo]);
-
-  /** Resolves true when no Unsaved Changes are left to lose: none, saved, or discarded on purpose. */
-  const settleChanges = useCallback(async () => {
-    const { state: current, file: currentFile } = latest.current;
-    if (!hasUnsavedChanges(current)) return true;
-    const answer = await port.askToSaveChanges(currentFile?.name ?? UNTITLED);
-    return answer === 'save' ? save() : answer === 'discard';
-  }, [port, save]);
-
-  const open = useCallback(async () => {
-    if (!(await settleChanges())) return;
-    const chosen = await port.showOpenDialog();
-    if (!chosen) return;
-    const subject = `Could not open ${chosen.name}`;
-    let bytes: Uint8Array;
-    try {
-      bytes = await port.readBytes(chosen);
-    } catch (error) {
-      return fail('Could not open', subject, error);
-    }
-    const result = readWorksheet(bytes);
-    if (!result.ok) return fail('Could not open', subject, result.reason);
-    dispatch({ type: 'replace', ...result.worksheet });
-    setFile(chosen);
-  }, [port, dispatch, settleChanges, fail]);
-
-  const startNew = useCallback(async () => {
-    if (!(await settleChanges())) return;
-    dispatch({ type: 'replace', metadata: emptyMetadata, blocks: [] });
-    setFile(null);
-  }, [dispatch, settleChanges]);
+  // Effects report back through the latest `send`, which cannot refer to itself.
+  const sendLater = useRef<(event: FileEvent) => void>(() => {});
+  const send = useCallback(
+    (event: FileEvent) => {
+      const next = fileFlow(flow.current, event);
+      flow.current = next.state;
+      setFile(next.state.file);
+      next.effects.forEach((effect) =>
+        perform(effect, (reply) => sendLater.current(reply)),
+      );
+    },
+    [perform],
+  );
+  useEffect(() => {
+    sendLater.current = send;
+  }, [send]);
 
   const run = useCallback(
-    (command: string) => {
-      const commands: Record<string, () => Promise<unknown>> = {
-        'file-new': startNew,
-        'open-file': open,
-        'file-save': save,
-        'file-save-as': saveAs,
-      };
-      commands[command]?.().catch((error) => console.error(error));
+    (id: string) => {
+      const command = COMMANDS[id];
+      if (command)
+        send({
+          type: 'command',
+          command,
+          unsaved: hasUnsavedChanges(latest.current.state),
+        });
     },
-    [save, saveAs, open, startNew],
+    [send],
   );
 
   useEffect(() => menuEvents(run), [menuEvents, run]);
@@ -155,9 +178,20 @@ export function FileCommands({
     () =>
       port.onCloseRequested({
         hasUnsavedChanges: () => hasUnsavedChanges(latest.current.state),
-        mayClose: settleChanges,
+        // Another command is under way: it has the dialogs, so the window stays open.
+        mayClose: () =>
+          isBusy(flow.current)
+            ? Promise.resolve(false)
+            : new Promise<boolean>((resolve) => {
+                answerClose.current = resolve;
+                send({
+                  type: 'command',
+                  command: 'close',
+                  unsaved: hasUnsavedChanges(latest.current.state),
+                });
+              }),
       }),
-    [port, settleChanges],
+    [port, send],
   );
 
   useEffect(() => {
