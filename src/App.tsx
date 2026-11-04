@@ -2,11 +2,9 @@ import { isTauri } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useState } from 'react';
 import { ExportCommands } from './export/export-commands';
-import {
-  createBrowserExportPort,
-  createUnavailableExportPort,
-} from './export/browser-port';
+import { createBrowserExportPort } from './export/browser-port';
 import type { ExportPort } from './export/port';
+import { createTauriExportPort } from './export/tauri-port';
 import { BlockPalette } from './components/BlockPalette';
 import { PropertiesPanel } from './components/PropertiesPanel';
 import { WorksheetDnd } from './components/WorksheetDnd';
@@ -32,7 +30,7 @@ const tauriMenuEvents: MenuEvents = (handler) => {
 
 const defaultPort = isTauri() ? createTauriPort() : createBrowserPort();
 const defaultExportPort = isTauri()
-  ? createUnavailableExportPort()
+  ? createTauriExportPort()
   : createBrowserExportPort();
 
 function App({
