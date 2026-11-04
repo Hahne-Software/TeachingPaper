@@ -24,13 +24,19 @@ jobs:
       - run: pnpm build
 
   rust:
-    runs-on: ubuntu-latest
+    # Platform code (`cfg(windows)`, `cfg(target_os = "macos")`) only compiles on its own platform.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     defaults:
       run:
         working-directory: src-tauri
     steps:
       - uses: actions/checkout@v4
       - name: Install Tauri system dependencies
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
@@ -42,6 +48,7 @@ jobs:
           workspaces: src-tauri
       # tauri::generate_context! needs the frontendDist folder to exist at compile time.
       - run: mkdir -p ../dist
+        shell: bash
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
