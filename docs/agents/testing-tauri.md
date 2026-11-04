@@ -10,6 +10,8 @@ Rust lives in `src-tauri/`. Run `cargo fmt`, `cargo clippy --all-targets -- -D w
 - `confirm` and `ask` of `plugin-dialog` run through the `message` command: grant `dialog:allow-message`.
 - Own `#[tauri::command]`s need no capability; they accept any path, so keep them small and test them with plain `cargo test` on temp directories (`tempfile`).
 - `plugin-fs` reads only paths the dialog returned. A path the app builds itself (a typed name plus `.tpsheet`) is out of scope: use an own command.
+- The `rust` job in `ci.yml` runs on Linux, Windows and macOS, so platform code (`cfg(windows)`, `cfg(target_os = "macos")`) is compiled and linted before a release build.
+- The native print-to-PDF code per platform started as the spike #65 (result and trimmed code in its issue comment, full code in `src-tauri/src/spike_pdf.rs` of commit `83a8751`, branch `spike/native-print-to-pdf`, never merged).
 - Raw bytes go over `invoke(cmd, bytes, { headers })`; header values must be ASCII, so percent-encode paths.
 
 ## Frontend tests
