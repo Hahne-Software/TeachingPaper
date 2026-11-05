@@ -63,8 +63,8 @@ pub fn print(webview: PlatformWebview, path: PathBuf, done: Done) {
             settings.SetMarginBottom(0.0)?;
             settings.SetMarginLeft(0.0)?;
             settings.SetMarginRight(0.0)?;
-            settings.SetShouldPrintBackgrounds(true.into())?;
-            settings.SetShouldPrintHeaderAndFooter(false.into())?;
+            settings.SetShouldPrintBackgrounds(true)?;
+            settings.SetShouldPrintHeaderAndFooter(false)?;
             let finished = done.clone();
             let handler = PrintToPdfCompletedHandler::create(Box::new(move |result, ok| {
                 let _ = finished.send(match result {
