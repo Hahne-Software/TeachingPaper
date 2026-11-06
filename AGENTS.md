@@ -20,6 +20,7 @@
 ## Code style
 
 - Use functional patterns where possible
+- For every new feature, weigh a reducer or state machine: it pays off when the logic has several steps or states, async results or invalid combinations (e.g. `worksheet/reducer.ts`, `worksheet-file/file-flow.ts`). Keep it pure, put side effects in effect objects a thin runner performs, and test it without React. Skip it for a single value or a linear flow; say in the PR which you chose
 
 ## Branching & releases
 
