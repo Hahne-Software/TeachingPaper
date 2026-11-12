@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useWorksheet } from '../worksheet/context';
 import type { WorksheetMetadata } from '../worksheet/metadata';
 import type { MenuEvents } from '../worksheet-file/file-commands';
@@ -34,7 +34,9 @@ const SHORTCUT_FORMAT = 'pdf';
 
 /**
  * The Export of the Worksheet in the surrounding provider, for every Export Format in the registry.
- * Renders nothing. It never changes the Worksheet or its Unsaved Changes.
+ * Renders nothing. It never changes the Worksheet or its Unsaved Changes. While an Export is under
+ * way, further ones are ignored, so a shortcut that reaches both the native menu and the WebView
+ * opens only one dialog.
  */
 export function ExportCommands({
   port,
@@ -50,8 +52,9 @@ export function ExportCommands({
   menuEvents: MenuEvents;
 }) {
   const { state, getPageLayout } = useWorksheet();
+  const exporting = useRef(false);
 
-  const exportAs = useCallback(
+  const runExport = useCallback(
     async (format: ExportFormat) => {
       const layout = getPageLayout();
       const isUnsupported = (index: number) =>
@@ -86,6 +89,19 @@ export function ExportCommands({
       }
     },
     [port, filePort, fileName, state.metadata, state.blocks, getPageLayout],
+  );
+
+  const exportAs = useCallback(
+    async (format: ExportFormat) => {
+      if (exporting.current) return;
+      exporting.current = true;
+      try {
+        await runExport(format);
+      } finally {
+        exporting.current = false;
+      }
+    },
+    [runExport],
   );
 
   useEffect(
