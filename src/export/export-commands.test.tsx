@@ -64,6 +64,20 @@ describe('Export as PDF', () => {
     expect(exportFake.dialogs.map((d) => d.format)).toEqual(['PDF', 'PDF']);
   });
 
+  it('ignores a second Export while one is under way', async () => {
+    const { exportFake, menu, key } = renderApp();
+    const closeDialog = exportFake.holdDialog();
+    exportFake.answerDialog('a.pdf');
+    await menu('file-export-pdf');
+    await key('e');
+    await menu('file-export-pdf');
+    closeDialog();
+    await waitFor(() => expect(exportFake.printed).toHaveLength(1));
+    expect(exportFake.dialogs).toHaveLength(1);
+    await key('e');
+    expect(exportFake.dialogs).toHaveLength(2);
+  });
+
   it('suggests the Worksheet File name, else the Title, else Worksheet.pdf', async () => {
     const { fake, exportFake, menu } = renderApp();
     await menu('file-export-pdf');

@@ -6,6 +6,7 @@ export const createFakeExportPort = () => {
   const nextAnswer: (string | null)[] = [];
   const failures: string[] = [];
   const noticeAnswers: boolean[] = [];
+  let held: Promise<void> | null = null;
   const fake = {
     /** Every save dialog that was shown, with the name it suggested. */
     dialogs: [] as { suggestedName: string; format: string }[],
@@ -18,6 +19,12 @@ export const createFakeExportPort = () => {
       void noticeAnswers.push(exportAnyway),
     /** The next save dialog picks this file name (null cancels). */
     answerDialog: (name: string | null) => void nextAnswer.push(name),
+    /** Keeps the next save dialog open until the returned function is called. */
+    holdDialog: () => {
+      let release = () => {};
+      held = new Promise((resolve) => (release = resolve));
+      return release;
+    },
     /** The next `printToPdf` fails with this message. */
     failNextPrint: (message: string) => void failures.push(message),
     /** The latest export document, parsed. */
@@ -34,6 +41,9 @@ export const createFakeExportPort = () => {
     },
     showExportDialog: async (suggestedName, format) => {
       fake.dialogs.push({ suggestedName, format: format.label });
+      const open = held;
+      held = null;
+      if (open) await open;
       const name = nextAnswer.shift() ?? null;
       return name === null ? null : ({ name } satisfies FileRef);
     },
